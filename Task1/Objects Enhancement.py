@@ -18,6 +18,9 @@ if __name__ == '__main__':
     vid_name = 'input_video.avi'
     vid = cv2.VideoCapture(vid_name)
     ret, blackframe = vid.read()
+
+    iter = 0
+
     while ret:
         # Get rid of black frame
         frame_bgr = blackframe[60:420, :]
@@ -35,18 +38,49 @@ if __name__ == '__main__':
         # CannyV
         frame_cannyV = cv2.Canny(frame_hsv[:, :, 2], 35, 45)
 
+        # Blur
+        frame_cannyV = cv2.blur(frame_cannyV, (5, 5))
 
+        # Close
+        frame_cannyV = cv2.morphologyEx(frame_cannyV, cv2.MORPH_CLOSE, np.ones(5))
+
+        # Contours
+        contours, hierarchy = cv2.findContours(frame_cannyV, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 
 
         # image = 2 versions of a frame
-        image = np.zeros((frame_gray.shape[0] * 2, frame_gray.shape[1]), dtype=np.uint8)
+        image = np.zeros((frame_gray.shape[0] * 2, frame_gray.shape[1], 3), dtype=np.uint8)
 
-        image[:frame_gray.shape[0], :] = frame_gray
+        if iter > -1:
+            i_cnt = 0
+            specialCnt = np.ones(frame_bgr.shape)
+            while hierarchy[0][i_cnt][0] >= 0:
+                cnt = contours[i_cnt]
+                P = cv2.arcLength(cnt, True)
+                print(P)
 
-        image[frame_gray.shape[0]:, :] = frame_cannyV
+                # Fill the main image
+                if 100 < P < 800:
+                    image[:frame_gray.shape[0], :, :] = cv2.drawContours(specialCnt, contours, i_cnt, (255, 255, 0), 3)
+                image[frame_gray.shape[0]:, :, 0] = frame_cannyV
 
+                # Next contour
+                i_cnt = hierarchy[0][i_cnt][0]
 
-        cv2.imshow('Player', image)
-        cv2.waitKey(30)
+                # Build a window
+                cv2.imshow('Player', image)
+                cv2.waitKey(1)
+        else:
+            # Fill the main image
+            image[:frame_gray.shape[0], :, :] = cv2.drawContours(np.ones(frame_bgr.shape), contours, -1, (255, 255, 0), 3)
+            image[frame_gray.shape[0]:, :, 0] = frame_cannyV
 
+            # Build a window
+            cv2.imshow('Player', image)
+            cv2.waitKey(30)
+
+        # Get the next frame
         ret, blackframe = vid.read()
+
+        iter += 1
+    vid.release()
