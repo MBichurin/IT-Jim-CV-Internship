@@ -14,6 +14,74 @@ def myEdgeSearch(frame_gray):
 
     return frame_open
 
+def cannyEdgeSearch(frame_hsv):
+    # CannyV
+    frame_cannyV = cv2.Canny(frame_hsv[:, :, 2], 35, 45)
+
+    # Blur
+    frame_cannyV = cv2.blur(frame_cannyV, (5, 5))
+    frame_cannyV = cv2.blur(frame_cannyV, (3, 3))
+    frame_cannyV = cv2.blur(frame_cannyV, (3, 3))
+
+    # Open
+    frame_cannyV = cv2.morphologyEx(frame_cannyV, cv2.MORPH_OPEN, np.ones(5))
+
+    # Close
+    frame_cannyV = cv2.morphologyEx(frame_cannyV, cv2.MORPH_CLOSE, np.ones(5))
+    return frame_cannyV
+
+def getMask(frm_edges):
+    # Contours
+    contours, hierarchy = cv2.findContours(frm_edges, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
+
+    i_cnt = 0
+
+    frame_cnts = np.zeros(frm_edges.shape, dtype=np.uint8)
+
+    while i_cnt >= 0:  # the contour exists
+        the_cnt = contours[i_cnt]
+        # Perimeter
+        P = cv2.arcLength(the_cnt, False)
+        S = cv2.contourArea(the_cnt)
+
+        # Enclosing Circle
+        (x, y), radius = cv2.minEnclosingCircle(the_cnt)
+        S_circle = np.pi * (radius ** 2)
+
+        # Rotated Rectangle
+        (x, y), (width, height), angle = cv2.minAreaRect(the_cnt)
+        S_rect = width * height
+        if width > height:
+            width, height = height, width
+
+        # and S_rect / S < 2 and S_circle / S < 10
+        if 100 < P < 1200 and height / width < 1.5:
+            # frame_cnts = cv2.drawContours(specialCnt, the_cnt, -1, (255, 255, 255), 1)
+            frame_cnts = cv2.fillPoly(frame_cnts, [the_cnt], (255, 255, 255))
+
+        # Next contour
+        i_cnt = hierarchy[0][i_cnt][0]
+    return frame_cnts
+
+def approxFigures(mask):
+    # Contours
+    contours, hierarchy = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+
+    i_cnt = 0
+
+    mask = np.zeros(mask.shape, dtype=np.uint8)
+
+    while i_cnt >= 0 and len(contours) > 0:  # the contour exists
+        the_cnt = contours[i_cnt]
+
+        hull = cv2.convexHull(the_cnt)
+
+        mask = cv2.fillPoly(mask, [hull], (255, 255, 255))
+
+        # Next contour
+        i_cnt = hierarchy[0][i_cnt][0]
+    return mask
+
 if __name__ == '__main__':
     vid_name = 'input_video.avi'
     vid = cv2.VideoCapture(vid_name)
@@ -33,56 +101,28 @@ if __name__ == '__main__':
         frame_hsv = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2HSV)
         frame_lab = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2Lab)
 
+        # Find edges
+        frm_edges = cannyEdgeSearch(frame_hsv)
 
+        # Get mask
+        mask = getMask(frm_edges)
 
-        # CannyV
-        frame_cannyV = cv2.Canny(frame_hsv[:, :, 2], 35, 45)
+        # Erode (maybe (7,7) 3*times is better)
+        mask = cv2.erode(mask, np.ones((21, 21), np.uint8))
 
-        # Blur
-        frame_cannyV = cv2.blur(frame_cannyV, (5, 5))
-        frame_cannyV = cv2.blur(frame_cannyV, (3, 3))
-        frame_cannyV = cv2.blur(frame_cannyV, (3, 3))
+        # Dilate
+        mask = cv2.dilate(mask, np.ones((7, 7), np.uint8))
 
-        # Open
-        frame_cannyV = cv2.morphologyEx(frame_cannyV, cv2.MORPH_OPEN, np.ones(5))
+        # Approx figures
+        mask = approxFigures(mask)
 
-        # Close
-        frame_cannyV = cv2.morphologyEx(frame_cannyV, cv2.MORPH_CLOSE, np.ones(5))
+        # Upd the main image
+        image = np.zeros((frame_gray.shape[0] * 2, frame_gray.shape[1]), dtype=np.uint8)
+        image[:frame_gray.shape[0], :] = mask
+        image[frame_gray.shape[0]:, :] = cv2.bitwise_or(frame_gray, mask, mask)
 
-        # Contours
-        contours, hierarchy = cv2.findContours(frame_cannyV, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
-
-
-        # image = 2 versions of a frame
-        image = np.zeros((frame_gray.shape[0] * 2, frame_gray.shape[1], 3), dtype=np.uint8)
-
-
-        i_cnt = 0
-        specialCnt = np.ones(frame_bgr.shape)
-        while i_cnt >= 0: # the contour exists
-            # Fill the main image
-
-            fst_child = hierarchy[0][i_cnt][2]
-            if fst_child < 0 or (fst_child >= 0 and hierarchy[0][fst_child][0] >= 0): # no child or > 1 child
-                P = cv2.arcLength(contours[i_cnt], False)
-                if 100 < P < 1200:
-                    image[:frame_gray.shape[0], :, :] = cv2.drawContours(specialCnt, contours, i_cnt, (255, 255, 0), 3)
-            else:
-                P = cv2.arcLength(contours[fst_child], False)
-                if 100 < P < 1200:
-                    image[:frame_gray.shape[0], :, :] = cv2.drawContours(specialCnt, contours, fst_child, (0, 255, 0), 3)
-                else:
-                    P = cv2.arcLength(contours[i_cnt], False)
-                    if 100 < P < 1200:
-                        image[:frame_gray.shape[0], :, :] = cv2.drawContours(specialCnt, contours, i_cnt, (255, 255, 0), 3)
-
-            image[frame_gray.shape[0]:, :, 0] = frame_cannyV
-
-            # Next contour
-            i_cnt = hierarchy[0][i_cnt][0]
-
-            # Build a window
-            cv2.imshow('Player', image)
+        # Build a window
+        cv2.imshow('Player', image)
 
         cv2.waitKey(30)
 
