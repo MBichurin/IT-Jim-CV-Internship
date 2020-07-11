@@ -38,6 +38,10 @@ def getMask(frm_edges):
 
     frame_cnts = np.zeros(frm_edges.shape, dtype=np.uint8)
 
+    # Top border of frames
+    topBorder = np.zeros(frame_cnts.shape, dtype=np.uint8)
+    topBorder[0, :] = 255
+
     while i_cnt >= 0:  # the contour exists
         the_cnt = contours[i_cnt]
         # Perimeter
@@ -54,8 +58,11 @@ def getMask(frm_edges):
         if width > height:
             width, height = height, width
 
-        # and S_rect / S < 2 and S_circle / S < 10
-        if 100 < P < 1200 and height / width < 1.5:
+        # Put the contour on an image to check if it's on borders
+        cnt_img = np.zeros(frame_cnts.shape, dtype=np.uint8)
+        cnt_img = cv2.drawContours(cnt_img, [the_cnt], -1, (255, 255, 255), 1)
+
+        if 100 < P < 1200 and height / width < 1.5 and ~cv2.bitwise_and(cnt_img, topBorder).any():
             # frame_cnts = cv2.drawContours(specialCnt, the_cnt, -1, (255, 255, 255), 1)
             frame_cnts = cv2.fillPoly(frame_cnts, [the_cnt], (255, 255, 255))
 
@@ -119,7 +126,7 @@ if __name__ == '__main__':
         # Upd the main image
         image = np.zeros((frame_gray.shape[0] * 2, frame_gray.shape[1]), dtype=np.uint8)
         image[:frame_gray.shape[0], :] = mask
-        image[frame_gray.shape[0]:, :] = cv2.bitwise_or(frame_gray, mask, mask)
+        image[frame_gray.shape[0]:, :] = cv2.bitwise_or(frame_gray, mask)
 
         # Build a window
         cv2.imshow('Player', image)
