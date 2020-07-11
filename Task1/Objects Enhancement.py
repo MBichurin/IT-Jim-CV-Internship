@@ -40,44 +40,51 @@ if __name__ == '__main__':
 
         # Blur
         frame_cannyV = cv2.blur(frame_cannyV, (5, 5))
+        frame_cannyV = cv2.blur(frame_cannyV, (3, 3))
+        frame_cannyV = cv2.blur(frame_cannyV, (3, 3))
+
+        # Open
+        frame_cannyV = cv2.morphologyEx(frame_cannyV, cv2.MORPH_OPEN, np.ones(5))
 
         # Close
         frame_cannyV = cv2.morphologyEx(frame_cannyV, cv2.MORPH_CLOSE, np.ones(5))
 
         # Contours
-        contours, hierarchy = cv2.findContours(frame_cannyV, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+        contours, hierarchy = cv2.findContours(frame_cannyV, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
 
 
         # image = 2 versions of a frame
         image = np.zeros((frame_gray.shape[0] * 2, frame_gray.shape[1], 3), dtype=np.uint8)
 
-        if iter > -1:
-            i_cnt = 0
-            specialCnt = np.ones(frame_bgr.shape)
-            while hierarchy[0][i_cnt][0] >= 0:
-                cnt = contours[i_cnt]
-                P = cv2.arcLength(cnt, True)
-                print(P)
 
-                # Fill the main image
-                if 100 < P < 800:
-                    image[:frame_gray.shape[0], :, :] = cv2.drawContours(specialCnt, contours, i_cnt, (255, 255, 0), 3)
-                image[frame_gray.shape[0]:, :, 0] = frame_cannyV
-
-                # Next contour
-                i_cnt = hierarchy[0][i_cnt][0]
-
-                # Build a window
-                cv2.imshow('Player', image)
-                cv2.waitKey(1)
-        else:
+        i_cnt = 0
+        specialCnt = np.ones(frame_bgr.shape)
+        while i_cnt >= 0: # the contour exists
             # Fill the main image
-            image[:frame_gray.shape[0], :, :] = cv2.drawContours(np.ones(frame_bgr.shape), contours, -1, (255, 255, 0), 3)
+
+            fst_child = hierarchy[0][i_cnt][2]
+            if fst_child < 0 or (fst_child >= 0 and hierarchy[0][fst_child][0] >= 0): # no child or > 1 child
+                P = cv2.arcLength(contours[i_cnt], False)
+                if 100 < P < 1200:
+                    image[:frame_gray.shape[0], :, :] = cv2.drawContours(specialCnt, contours, i_cnt, (255, 255, 0), 3)
+            else:
+                P = cv2.arcLength(contours[fst_child], False)
+                if 100 < P < 1200:
+                    image[:frame_gray.shape[0], :, :] = cv2.drawContours(specialCnt, contours, fst_child, (0, 255, 0), 3)
+                else:
+                    P = cv2.arcLength(contours[i_cnt], False)
+                    if 100 < P < 1200:
+                        image[:frame_gray.shape[0], :, :] = cv2.drawContours(specialCnt, contours, i_cnt, (255, 255, 0), 3)
+
             image[frame_gray.shape[0]:, :, 0] = frame_cannyV
+
+            # Next contour
+            i_cnt = hierarchy[0][i_cnt][0]
 
             # Build a window
             cv2.imshow('Player', image)
-            cv2.waitKey(30)
+
+        cv2.waitKey(30)
 
         # Get the next frame
         ret, blackframe = vid.read()
