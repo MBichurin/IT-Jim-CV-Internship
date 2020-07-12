@@ -156,7 +156,6 @@ if __name__ == '__main__':
     # Writer
     fourcc = cv2.VideoWriter_fourcc(*'DIVX')
     writer = cv2.VideoWriter('output_video.avi', fourcc, 30, (int(blackframe.shape[1] * 0.8), int(blackframe.shape[0] * 0.8)), 0)
-    #writer = cv2.VideoWriter('output_video.avi', fourcc, 30, (blackframe.shape[1], blackframe.shape[0]), 0)
 
     while ret:
         # Get rid of black frame
@@ -200,19 +199,17 @@ if __name__ == '__main__':
         image[frame_gray.shape[0]:, frame_bgr.shape[1]:, :] = frame_det_rects
 
         # Upd screen
-        cv2.imshow('Player', image)
+        cv2.imshow('Objects detection', image)
 
         if key == ord(' '):
             key = cv2.waitKey(0)
         else:
-            key = cv2.waitKey(1)
+            key = cv2.waitKey(25)
 
         # Write frame in output video
-        frame_out = np.zeros((int(blackframe.shape[0] * 0.8), int(blackframe.shape[1] * 0.8)))
+        frame_out = np.zeros((int(blackframe.shape[0] * 0.8), int(blackframe.shape[1] * 0.8)), dtype='uint8')
         frame_out[int(60 * 0.8):int(420 * 0.8), :] = mask
-        cv2.imshow('Window with example', frame_out)
         writer.write(frame_out)
-        #writer.write(blackframe)
 
         # Get the next frame
         ret, blackframe = vid.read()
