@@ -155,7 +155,9 @@ if __name__ == '__main__':
 
     # Writer
     fourcc = cv2.VideoWriter_fourcc(*'DIVX')
-    writer = cv2.VideoWriter('output_video.avi', fourcc, 30, (int(blackframe.shape[1] * 0.8), int(blackframe.shape[0] * 0.8)), 0)
+    writer = cv2.VideoWriter('output_video.avi', fourcc, 20, (int(blackframe.shape[1] * 0.8), int(blackframe.shape[0] * 0.8)), 0)
+
+    #writer2 = cv2.VideoWriter('4windows.avi', fourcc, 20, (int(blackframe.shape[1] * 0.8) * 2, int(360 * 0.8) * 2))
 
     while ret:
         # Get rid of black frame
@@ -211,8 +213,11 @@ if __name__ == '__main__':
         frame_out[int(60 * 0.8):int(420 * 0.8), :] = mask
         writer.write(frame_out)
 
+        #writer2.write(image)
+
         # Get the next frame
         ret, blackframe = vid.read()
     vid.release()
     writer.release()
     cv2.destroyAllWindows()
+    #writer2.release()
