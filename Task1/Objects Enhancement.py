@@ -51,6 +51,14 @@ def getMask(frm_edges):
 
         # Next contour
         i_cnt = hierarchy[0][i_cnt][0]
+
+    # Erode
+    frame_cnts = cv2.erode(frame_cnts, np.ones((21, 21), np.uint8))
+
+    # Dilate
+    for i in range(2):
+        frame_cnts = cv2.dilate(frame_cnts, np.ones((7, 7), np.uint8))
+
     return frame_cnts
 
 def approxFigures(mask):
@@ -65,7 +73,12 @@ def approxFigures(mask):
 
         # Convex Hull
         hull = cv2.convexHull(the_cnt)
-        mask = cv2.fillPoly(mask, [hull], (255, 255, 255))
+
+        # Straight Bounding Rectangle
+        x, y, width, height = cv2.boundingRect(hull)
+
+        if width * height >= 385: # Get rid of small objs
+            mask = cv2.fillPoly(mask, [hull], (255, 255, 255))
 
         # Next contour
         i_cnt = hierarchy[0][i_cnt][0]
@@ -115,10 +128,35 @@ def findBlackObjs(frame_gray):
 
     return black_mask
 
+def detectionRects(mask):
+    # 2-lvl contours to ignore inners
+    contours, hierarchy = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
+
+    mask = np.zeros(mask.shape, dtype=np.uint8)
+
+    i_cnt = 0
+    while i_cnt >= 0 and len(contours) > 0:  # the contour exists
+        the_cnt = contours[i_cnt]
+
+        x, y, width, height = cv2.boundingRect(the_cnt)
+        cv2.rectangle(mask, (x, y), (x + width, y + height), (255, 255, 255), 2)
+
+        # Next contour
+        i_cnt = hierarchy[0][i_cnt][0]
+
+    return mask
+
 if __name__ == '__main__':
     vid_name = 'input_video.avi'
     vid = cv2.VideoCapture(vid_name)
     ret, blackframe = vid.read()
+
+    key = None
+
+    # Writer
+    fourcc = cv2.VideoWriter_fourcc(*'DIVX')
+    writer = cv2.VideoWriter('output_video.avi', fourcc, 30, (int(blackframe.shape[1] * 0.8), int(blackframe.shape[0] * 0.8)), 0)
+    #writer = cv2.VideoWriter('output_video.avi', fourcc, 30, (blackframe.shape[1], blackframe.shape[0]), 0)
 
     while ret:
         # Get rid of black frame
@@ -138,28 +176,46 @@ if __name__ == '__main__':
         # Get mask
         mask = getMask(frm_edges)
 
-        # Erode (maybe (7,7) 3*times is better)
-        mask = cv2.erode(mask, np.ones((21, 21), np.uint8))
-
-        # Dilate
-        mask = cv2.dilate(mask, np.ones((7, 7), np.uint8))
-
         # Approx figures
         mask = approxFigures(mask)
 
         # Black color
         black_mask = findBlackObjs(frame_gray)
+        mask = cv2.bitwise_or(mask, black_mask)
+
+        # Frame with mask
+        frame_mask = np.copy(frame_bgr)
+        frame_mask[mask == 255, :] = (255, 102, 102)
+
+        # Rects of detections
+        rects = detectionRects(mask)
+        frame_det_rects = np.copy(frame_bgr)
+        frame_det_rects[rects == 255, :] = (0, 255, 0)
 
         # Upd the main image
-        image = np.zeros((frame_gray.shape[0] * 2, frame_gray.shape[1]), dtype=np.uint8)
-        image[:frame_gray.shape[0], :] = frame_gray
-        image[frame_gray.shape[0]:, :] = cv2.bitwise_or(cv2.bitwise_or(frame_gray, mask), black_mask)
+        image = np.zeros((frame_bgr.shape[0] * 2, frame_bgr.shape[1] * 2, frame_bgr.shape[2]), dtype=np.uint8)
+        image[:frame_gray.shape[0], :frame_bgr.shape[1], :] = frame_bgr
+        image[:frame_gray.shape[0], frame_bgr.shape[1]:, :] = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
+        image[frame_gray.shape[0]:, :frame_bgr.shape[1], :] = frame_mask
+        image[frame_gray.shape[0]:, frame_bgr.shape[1]:, :] = frame_det_rects
 
-        # Build a window
+        # Upd screen
         cv2.imshow('Player', image)
 
-        cv2.waitKey(30)
+        if key == ord(' '):
+            key = cv2.waitKey(0)
+        else:
+            key = cv2.waitKey(1)
+
+        # Write frame in output video
+        frame_out = np.zeros((int(blackframe.shape[0] * 0.8), int(blackframe.shape[1] * 0.8)))
+        frame_out[int(60 * 0.8):int(420 * 0.8), :] = mask
+        cv2.imshow('Window with example', frame_out)
+        writer.write(frame_out)
+        #writer.write(blackframe)
 
         # Get the next frame
         ret, blackframe = vid.read()
     vid.release()
+    writer.release()
+    cv2.destroyAllWindows()
