@@ -46,25 +46,22 @@ def getMask(frm_edges):
         the_cnt = contours[i_cnt]
         # Perimeter
         P = cv2.arcLength(the_cnt, False)
-        S = cv2.contourArea(the_cnt)
 
-        # Enclosing Circle
-        (x, y), radius = cv2.minEnclosingCircle(the_cnt)
-        S_circle = np.pi * (radius ** 2)
+        if 100 < P < 1200:
+            # Put the contour on an image to check if it's on borders
+            cnt_img = np.zeros(frame_cnts.shape, dtype=np.uint8)
+            cnt_img = cv2.drawContours(cnt_img, [the_cnt], -1, (255, 255, 255), 1)
 
-        # Rotated Rectangle
-        (x, y), (width, height), angle = cv2.minAreaRect(the_cnt)
-        S_rect = width * height
-        if width > height:
-            width, height = height, width
+            if ~cv2.bitwise_and(cnt_img, topBorder).any():
+                # Rotated Rectangle
+                (x, y), (width, height), angle = cv2.minAreaRect(the_cnt)
+                S_rect = width * height
 
-        # Put the contour on an image to check if it's on borders
-        cnt_img = np.zeros(frame_cnts.shape, dtype=np.uint8)
-        cnt_img = cv2.drawContours(cnt_img, [the_cnt], -1, (255, 255, 255), 1)
+                if width > height:
+                    width, height = height, width
 
-        if 100 < P < 1200 and height / width < 1.5 and ~cv2.bitwise_and(cnt_img, topBorder).any():
-            # frame_cnts = cv2.drawContours(specialCnt, the_cnt, -1, (255, 255, 255), 1)
-            frame_cnts = cv2.fillPoly(frame_cnts, [the_cnt], (255, 255, 255))
+                if height / width < 1.5:
+                    frame_cnts = cv2.fillPoly(frame_cnts, [the_cnt], (255, 255, 255))
 
         # Next contour
         i_cnt = hierarchy[0][i_cnt][0]
