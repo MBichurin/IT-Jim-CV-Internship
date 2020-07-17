@@ -1,5 +1,6 @@
+.idea/
 *.txt
 *.avi
-.idea/
-filters_test.py
 *.zip
+*.png
+filters_test.py
