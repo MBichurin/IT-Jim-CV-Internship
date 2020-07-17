@@ -3,4 +3,5 @@
 *.avi
 *.zip
 *.png
+*.xcf
 filters_test.py
