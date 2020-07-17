@@ -155,60 +155,54 @@ def classifyContour(cnt):
 
     if S < 500 or cv2.bitwise_and(cnt_img, borders).any():
         # ???
-        pass
+        return -1
     elif w * h / S >= 1.4:
         # triangle
-        pass
+        return 0
     elif np.pi * radius * radius / S <= 1.365:
         # circle
-        pass
+        return 1
     elif w * h / S <= 1.09:
         # rectangle
-        pass
+        return 2
     elif w * h / S_approx >= 1.8 and approx.shape[0] == 3:
         # triangle
-        pass
+        return 0
     else:
         approx = cv2.approxPolyDP(cnt, 0.2 * P, True)
         if approx.shape[0] == 3:
             # triangle
-            pass
+            return 0
         else:
             approx = cv2.approxPolyDP(cnt, 0.03 * P, True)
             (x, y), (w, h), angle = cv2.minAreaRect(approx)
             if w * h / cv2.contourArea(approx) <= 1.2 and approx.shape[0] == 4:
                 # rectangle
-                pass
+                return 2
             else:
-                # ??? but it'd better b improved
-                pass
+                # ??? but it'd better be improved
+                return -1
 
-            # cnt_img = np.zeros(black_mask.shape, dtype=np.uint8)
-            # cv2.drawContours(cnt_img, [approx], -1, (255, 255, 255), 1)
-            # cv2.imshow('Another window', cnt_img)
+def classifyObjs(mask):
+    contours, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
-    #cv2.imshow('Another window', cnt_img)
-    cv2.waitKey(30)
+    classes = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
 
-def detectionRects(mask):
-    # 2-lvl contours to ignore inners
-    contours, hierarchy = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
-
-    mask = np.zeros(mask.shape, dtype=np.uint8)
+    colors = ((0, 255, 0), (153, 0, 153), (255, 102, 102))
 
     i_cnt = 0
     while i_cnt >= 0 and len(contours) > 0:  # the contour exists
         the_cnt = contours[i_cnt]
 
-        classifyContour(the_cnt)
+        cnt_class = classifyContour(the_cnt)
 
-        x, y, width, height = cv2.boundingRect(the_cnt)
-        cv2.rectangle(mask, (x, y), (x + width, y + height), (255, 255, 255), 2)
+        if cnt_class != -1:
+            cv2.drawContours(classes, [the_cnt], -1, colors[cnt_class], 3)
 
         # Next contour
         i_cnt = hierarchy[0][i_cnt][0]
 
-    return mask
+    return classes
 
 if __name__ == '__main__':
     vid_name = 'input_video.avi'
@@ -248,21 +242,17 @@ if __name__ == '__main__':
         black_mask = findBlackObjs(frame_gray)
         mask = cv2.bitwise_or(mask, black_mask)
 
-        # Frame with mask
-        frame_mask = np.copy(frame_bgr)
-        frame_mask[mask == 255, :] = (255, 102, 102)
-
-        # Rects of detections
-        rects = detectionRects(mask)
-        frame_det_rects = np.copy(frame_bgr)
-        frame_det_rects[rects == 255, :] = (0, 255, 0)
+        # Classifier
+        classes = classifyObjs(mask)
+        classes_gray = cv2.cvtColor(classes, cv2.COLOR_BGR2GRAY)
+        #frm_classes = np.zeros(frame_bgr.shape)
+        frm_classes = np.copy(classes)
+        frm_classes[classes_gray == 0, :] = frame_bgr[classes_gray == 0, :]
 
         # Upd the main image
-        image = np.zeros((frame_bgr.shape[0] * 2, frame_bgr.shape[1] * 2, frame_bgr.shape[2]), dtype=np.uint8)
+        image = np.zeros((frame_bgr.shape[0] * 2, frame_bgr.shape[1], frame_bgr.shape[2]), dtype=np.uint8)
         image[:frame_gray.shape[0], :frame_bgr.shape[1], :] = frame_bgr
-        image[:frame_gray.shape[0], frame_bgr.shape[1]:, :] = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
-        image[frame_gray.shape[0]:, :frame_bgr.shape[1], :] = frame_mask
-        image[frame_gray.shape[0]:, frame_bgr.shape[1]:, :] = frame_det_rects
+        image[frame_gray.shape[0]:, :frame_bgr.shape[1], :] = frm_classes
 
         # Upd screen
         cv2.imshow('Objects detection', image)
