@@ -46,7 +46,7 @@ def matcher(img_bgr, objs, num, shape):
         x, y, w, h = cv2.boundingRect(contour)
 
         # 2 objs in a column
-        if shape[1] <= w <= shape[1] * 1.25 and h >= 1.55 * shape[0]:
+        if shape[1] <= w <= shape[1] * 1.25 and h >= 1.65 * shape[0]:
             # Save locations to the dictionary
             locSaver(name, x, y, x + w, y + shape[0])
             locSaver(name, x, y + shape[0], x + w, y + h)
@@ -70,7 +70,7 @@ def matcher(img_bgr, objs, num, shape):
                 cv2.putText(img_bgr, name, (x - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (0, 0, 0), 1)
                 cv2.putText(img_bgr, name, (x - 1, y + shape[0] + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (0, 0, 0), 1)
         # 2 objs in a row
-        elif shape[0] <= h <= shape[0] * 1.25 and w >= 1.55 * shape[1]:
+        elif shape[0] <= h <= shape[0] * 1.25 and w >= 1.65 * shape[1]:
             # Save locations to the dictionary
             locSaver(name, x, y, x + shape[1], y + h)
             locSaver(name, x + shape[1], y, x + w, y + h)
@@ -97,7 +97,7 @@ def matcher(img_bgr, objs, num, shape):
             # Try with rotated shape
             shape = (shape[1], shape[0])
             # 2 objs in a column
-            if shape[1] <= w <= shape[1] * 1.25 and h >= 1.55 * shape[0]:
+            if shape[1] <= w <= shape[1] * 1.25 and h >= 1.65 * shape[0]:
                 # Save locations to the dictionary
                 locSaver(name, x, y, x + w, y + shape[0])
                 locSaver(name, x, y + shape[0], x + w, y + h)
@@ -122,7 +122,7 @@ def matcher(img_bgr, objs, num, shape):
                     cv2.putText(img_bgr, name, (x - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (0, 0, 0), 1)
                     cv2.putText(img_bgr, name, (x - 1, y + shape[0] + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (0, 0, 0), 1)
             # 2 objs in a row
-            elif shape[0] <= h <= shape[0] * 1.25 and w >= 1.55 * shape[1]:
+            elif shape[0] <= h <= shape[0] * 1.25 and w >= 1.65 * shape[1]:
                 # Save locations to the dictionary
                 locSaver(name, x, y, x + shape[1], y + h)
                 locSaver(name, x + shape[1], y, x + w, y + h)
