@@ -4,17 +4,20 @@ from matplotlib import pyplot as plt
 
 
 def getMask(tmp):
+    # Reverse the image
     mask = cv2.bitwise_not(tmp)
-
+    # Get outer contours
     contours, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    # Make the mask black
     mask = np.zeros(mask.shape, dtype=np.uint8)
+    # Fill the contours to make the object mask
     for contour in contours:
         cv2.fillPoly(mask, [contour], (255, 255, 255))
-
     return mask
 
 
-def matcher(img_bgr, objs, num):
+def matcher(img_bgr, objs, num, shape):
+    # Get the filename
     if num < 10:
         name = '00' + str(num)
     else:
@@ -27,25 +30,120 @@ def matcher(img_bgr, objs, num):
               (255, 0, 0), (255, 0, 127), (255, 0, 255), (102, 0, 204), (0, 0, 102), (0, 102, 102), (102, 0, 0),
               (102, 102, 0), (102, 102, 255)]
 
+    # Get the outer contours
     contours, hierarchy = cv2.findContours(objs, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     for contour in contours:
+        # Bounding rectangle
         x, y, w, h = cv2.boundingRect(contour)
-        # Several objects together
-        cv2.rectangle(img_bgr, (x, y), (x + w, y + h), colors[num - 1], 2)
-        if (w < 17):
-            cv2.rectangle(img_bgr, (x, y), (x + w, y + 8), colors[num - 1], -1)
-            name = str(num)
-        else:
-            cv2.rectangle(img_bgr, (x, y), (x + 17, y + 8), colors[num - 1], -1)
 
-        if num == 12 or num == 14 or num == 15:
-            cv2.putText(img_bgr, name, (x - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (255, 255, 255), 1)
-        else:
-            cv2.putText(img_bgr, name, (x - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (0, 0, 0), 1)
+        # 2 objs in a column
+        if shape[1] <= w <= shape[1] * 1.25 and h >= 1.55 * shape[0]:
+            # Draw the bounding rectangles
+            cv2.rectangle(img_bgr, (x, y), (x + w, y + shape[0]), colors[num - 1], 2)
+            cv2.rectangle(img_bgr, (x, y + shape[0]), (x + w, y + h), colors[num - 1], 2)
+            if (w < 17):
+                cv2.rectangle(img_bgr, (x, y), (x + w, y + 8), colors[num - 1], -1)
+                cv2.rectangle(img_bgr, (x, y + shape[0]), (x + w, y + shape[0] + 8), colors[num - 1], -1)
+                name = str(num)
+            else:
+                cv2.rectangle(img_bgr, (x, y), (x + 17, y + 8), colors[num - 1], -1)
+                cv2.rectangle(img_bgr, (x, y + shape[0]), (x + 17, y + shape[0] + 8), colors[num - 1], -1)
 
+            # White text labels
+            if num == 5 or num == 8 or 12 <= num <= 15:
+                cv2.putText(img_bgr, name, (x - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (255, 255, 255), 1)
+                cv2.putText(img_bgr, name, (x - 1, y + shape[0] + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (255, 255, 255), 1)
+            # Black text labels
+            else:
+                cv2.putText(img_bgr, name, (x - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (0, 0, 0), 1)
+                cv2.putText(img_bgr, name, (x - 1, y + shape[0] + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (0, 0, 0), 1)
+        # 2 objs in a row
+        elif shape[0] <= h <= shape[0] * 1.25 and w >= 1.55 * shape[1]:
+            # Draw the bounding rectangles
+            cv2.rectangle(img_bgr, (x, y), (x + shape[1], y + h), colors[num - 1], 2)
+            cv2.rectangle(img_bgr, (x + shape[1], y), (x + w, y + h), colors[num - 1], 2)
+            if (shape[1] < 17):
+                cv2.rectangle(img_bgr, (x, y), (x + shape[1], y + 8), colors[num - 1], -1)
+                cv2.rectangle(img_bgr, (x + shape[1], y), (x + w, y + 8), colors[num - 1], -1)
+                name = str(num)
+            else:
+                cv2.rectangle(img_bgr, (x, y), (x + 17, y + 8), colors[num - 1], -1)
+                cv2.rectangle(img_bgr, (x + shape[1], y), (x + shape[1] + 17, y + 8), colors[num - 1], -1)
+
+            # White text labels
+            if num == 5 or num == 8 or 12 <= num <= 15:
+                cv2.putText(img_bgr, name, (x - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (255, 255, 255), 1)
+                cv2.putText(img_bgr, name, (x + shape[1] - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (255, 255, 255), 1)
+            # Black text labels
+            else:
+                cv2.putText(img_bgr, name, (x - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (0, 0, 0), 1)
+                cv2.putText(img_bgr, name, (x + shape[1] - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (0, 0, 0), 1)
+        else:
+            # Try with rotated shape
+            shape = (shape[1], shape[0])
+            # 2 objs in a column
+            if shape[1] <= w <= shape[1] * 1.25 and h >= 1.55 * shape[0]:
+                # Draw the bounding rectangles
+                cv2.rectangle(img_bgr, (x, y), (x + w, y + shape[0]), colors[num - 1], 2)
+                cv2.rectangle(img_bgr, (x, y + shape[0]), (x + w, y + h), colors[num - 1], 2)
+                if (w < 17):
+                    cv2.rectangle(img_bgr, (x, y), (x + w, y + 8), colors[num - 1], -1)
+                    cv2.rectangle(img_bgr, (x, y + shape[0]), (x + w, y + shape[0] + 8), colors[num - 1], -1)
+                    name = str(num)
+                else:
+                    cv2.rectangle(img_bgr, (x, y), (x + 17, y + 8), colors[num - 1], -1)
+                    cv2.rectangle(img_bgr, (x, y + shape[0]), (x + 17, y + shape[0] + 8), colors[num - 1], -1)
+
+                # White text labels
+                if num == 5 or num == 8 or 12 <= num <= 15:
+                    cv2.putText(img_bgr, name, (x - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (255, 255, 255), 1)
+                    cv2.putText(img_bgr, name, (x - 1, y + shape[0] + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (255, 255, 255), 1)
+                # Black text labels
+                else:
+                    cv2.putText(img_bgr, name, (x - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (0, 0, 0), 1)
+                    cv2.putText(img_bgr, name, (x - 1, y + shape[0] + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (0, 0, 0), 1)
+            # 2 objs in a row
+            elif shape[0] <= h <= shape[0] * 1.25 and w >= 1.55 * shape[1]:
+                # Draw the bounding rectangles
+                cv2.rectangle(img_bgr, (x, y), (x + shape[1], y + h), colors[num - 1], 2)
+                cv2.rectangle(img_bgr, (x + shape[1], y), (x + w, y + h), colors[num - 1], 2)
+                if (shape[1] < 17):
+                    cv2.rectangle(img_bgr, (x, y), (x + shape[1], y + 8), colors[num - 1], -1)
+                    cv2.rectangle(img_bgr, (x + shape[1], y), (x + w, y + 8), colors[num - 1], -1)
+                    name = str(num)
+                else:
+                    cv2.rectangle(img_bgr, (x, y), (x + 17, y + 8), colors[num - 1], -1)
+                    cv2.rectangle(img_bgr, (x + shape[1], y), (x + shape[1] + 17, y + 8), colors[num - 1], -1)
+
+                # White text labels
+                if num == 5 or num == 8 or 12 <= num <= 15:
+                    cv2.putText(img_bgr, name, (x - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (255, 255, 255), 1)
+                    cv2.putText(img_bgr, name, (x + shape[1] - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (255, 255, 255), 1)
+                # Black text labels
+                else:
+                    cv2.putText(img_bgr, name, (x - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (0, 0, 0), 1)
+                    cv2.putText(img_bgr, name, (x + shape[1] - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (0, 0, 0), 1)
+            # 1 object
+            else:
+                # Draw the bounding rectangle
+                cv2.rectangle(img_bgr, (x, y), (x + w, y + h), colors[num - 1], 2)
+                if (w < 17):
+                    cv2.rectangle(img_bgr, (x, y), (x + w, y + 8), colors[num - 1], -1)
+                    name = str(num)
+                else:
+                    cv2.rectangle(img_bgr, (x, y), (x + 17, y + 8), colors[num - 1], -1)
+
+                # White text label
+                if num == 5 or num == 8 or 12 <= num <= 15:
+                    cv2.putText(img_bgr, name, (x - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (255, 255, 255), 1)
+                # Black text label
+                else:
+                    cv2.putText(img_bgr, name, (x - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (0, 0, 0), 1)
     return img_bgr
 
+
 def solve_6_7_16(img_gray, img_bgr):
+    # Filenames
     filenames = ['006', '007', '016']
     nums = [6, 7, 16]
 
@@ -67,13 +165,15 @@ def solve_6_7_16(img_gray, img_bgr):
             # Erase them on the pic
             cv2.rectangle(img_gray, pt, (pt[0] + tmp.shape[1], pt[1] + tmp.shape[0]), [255, 255, 255], -1)
 
-        img_bgr = matcher(img_bgr, background, nums[i])
+        # Match the found symbols on the result image
+        img_bgr = matcher(img_bgr, background, nums[i], tmp.shape)
         print(filenames[i] + ': done!')
 
     return img_gray, img_bgr
 
 
 def solve_3to5_8_9_13to15(num, methods, thresholds, erase, img_gray, img_bgr):
+    # Get the filename of the template
     if num < 10:
         name = '00' + str(num)
     else:
@@ -108,13 +208,15 @@ def solve_3to5_8_9_13to15(num, methods, thresholds, erase, img_gray, img_bgr):
                 img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]] = \
                     cv2.bitwise_or(img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]], getMask(tmp))
 
-    img_bgr = matcher(img_bgr, background, num)
+    # Match the found symbols on the result image
+    img_bgr = matcher(img_bgr, background, num, tmp.shape)
     print(name + ': done!')
 
     return img_gray, img_bgr
 
 
 def solve_10to12(num, methods, thresholds, img_gray, img_bgr):
+    # Get the filename of the template
     if num < 10:
         name = '00' + str(num)
     else:
@@ -148,13 +250,15 @@ def solve_10to12(num, methods, thresholds, img_gray, img_bgr):
             img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]] = \
                 cv2.bitwise_or(img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]], getMask(tmp))
 
-    img_bgr = matcher(img_bgr, background, num)
+    # Match the found symbols on the result image
+    img_bgr = matcher(img_bgr, background, num, tmp.shape)
     print(name + ': done!')
 
     return img_gray, img_bgr
 
 
 def solve_1(img_gray, img_bgr):
+    # Copy of img_gray to find the same objects with different rotations of the template
     img_gray_bUp = np.copy(img_gray)
     # Image to mark the found symbols on
     background = np.zeros(img_gray.shape, dtype=np.uint8)
@@ -189,17 +293,20 @@ def solve_1(img_gray, img_bgr):
             # Erase them on the pic
             img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]] = \
                 cv2.bitwise_or(img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]], getMask(tmp))
+            # Erase them on the pic used for TM only if it's vertical
             if i == 0 or i == 2:
                 img_gray_bUp[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]] = \
                     cv2.bitwise_or(img_gray_bUp[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]], getMask(tmp))
 
-    img_bgr = matcher(img_bgr, background, 1)
+    # Match the found symbols on the result image
+    img_bgr = matcher(img_bgr, background, 1, tmp.shape)
     print('001: done!')
 
     return img_gray, img_bgr
 
 
 def solve_2(img_gray, img_bgr):
+    # Copy of img_gray to find the same objects with different rotations of the template
     img_gray_bUp = np.copy(img_gray)
     # Image to mark the found symbols on
     background = np.zeros(img_gray.shape, dtype=np.uint8)
@@ -234,14 +341,17 @@ def solve_2(img_gray, img_bgr):
             img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]] = \
                 cv2.bitwise_or(img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]], getMask(tmp))
 
-    img_bgr = matcher(img_bgr, background, 2)
+    # Match the found symbols on the result image
+    img_bgr = matcher(img_bgr, background, 2, tmp.shape)
     print('002: done!')
     return img_gray, img_bgr
 
 
 def main():
+    # Read the plan
     img_name = 'plan.png'
     img_bgr = cv2.imread(img_name)
+    # Convert to (GRAY)
     img_gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
 
     # 006, 007 and 016
@@ -286,6 +396,7 @@ def main():
     # 010
     img_gray, img_bgr = solve_10to12(10, ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF'], [0, 45], img_gray, img_bgr)
 
+    # Save and output the resulting image
     cv2.imwrite('output.png', img_bgr)
     plt.imshow(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB))
     plt.show()
