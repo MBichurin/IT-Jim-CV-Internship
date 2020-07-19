@@ -1,6 +1,15 @@
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
+import json
+
+symbLocs = {}
+for i in range(16):
+    if i < 9:
+        type = '00' + str(i + 1)
+    else:
+        type = '0' + str(i + 1)
+    symbLocs[type] = []
 
 
 def getMask(tmp):
@@ -38,6 +47,9 @@ def matcher(img_bgr, objs, num, shape):
 
         # 2 objs in a column
         if shape[1] <= w <= shape[1] * 1.25 and h >= 1.55 * shape[0]:
+            # Save locations to the dictionary
+            locSaver(name, x, y, x + w, y + shape[0])
+            locSaver(name, x, y + shape[0], x + w, y + h)
             # Draw the bounding rectangles
             cv2.rectangle(img_bgr, (x, y), (x + w, y + shape[0]), colors[num - 1], 2)
             cv2.rectangle(img_bgr, (x, y + shape[0]), (x + w, y + h), colors[num - 1], 2)
@@ -59,6 +71,9 @@ def matcher(img_bgr, objs, num, shape):
                 cv2.putText(img_bgr, name, (x - 1, y + shape[0] + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (0, 0, 0), 1)
         # 2 objs in a row
         elif shape[0] <= h <= shape[0] * 1.25 and w >= 1.55 * shape[1]:
+            # Save locations to the dictionary
+            locSaver(name, x, y, x + shape[1], y + h)
+            locSaver(name, x + shape[1], y, x + w, y + h)
             # Draw the bounding rectangles
             cv2.rectangle(img_bgr, (x, y), (x + shape[1], y + h), colors[num - 1], 2)
             cv2.rectangle(img_bgr, (x + shape[1], y), (x + w, y + h), colors[num - 1], 2)
@@ -83,6 +98,9 @@ def matcher(img_bgr, objs, num, shape):
             shape = (shape[1], shape[0])
             # 2 objs in a column
             if shape[1] <= w <= shape[1] * 1.25 and h >= 1.55 * shape[0]:
+                # Save locations to the dictionary
+                locSaver(name, x, y, x + w, y + shape[0])
+                locSaver(name, x, y + shape[0], x + w, y + h)
                 # Draw the bounding rectangles
                 cv2.rectangle(img_bgr, (x, y), (x + w, y + shape[0]), colors[num - 1], 2)
                 cv2.rectangle(img_bgr, (x, y + shape[0]), (x + w, y + h), colors[num - 1], 2)
@@ -104,6 +122,9 @@ def matcher(img_bgr, objs, num, shape):
                     cv2.putText(img_bgr, name, (x - 1, y + shape[0] + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (0, 0, 0), 1)
             # 2 objs in a row
             elif shape[0] <= h <= shape[0] * 1.25 and w >= 1.55 * shape[1]:
+                # Save locations to the dictionary
+                locSaver(name, x, y, x + shape[1], y + h)
+                locSaver(name, x + shape[1], y, x + w, y + h)
                 # Draw the bounding rectangles
                 cv2.rectangle(img_bgr, (x, y), (x + shape[1], y + h), colors[num - 1], 2)
                 cv2.rectangle(img_bgr, (x + shape[1], y), (x + w, y + h), colors[num - 1], 2)
@@ -125,6 +146,8 @@ def matcher(img_bgr, objs, num, shape):
                     cv2.putText(img_bgr, name, (x + shape[1] - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (0, 0, 0), 1)
             # 1 object
             else:
+                # Save location to the dictionary
+                locSaver(name, x, y, x + w, y + h)
                 # Draw the bounding rectangle
                 cv2.rectangle(img_bgr, (x, y), (x + w, y + h), colors[num - 1], 2)
                 if (w < 17):
@@ -396,6 +419,10 @@ def main():
     # 010
     img_gray, img_bgr = solve_10to12(10, ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF'], [0, 45], img_gray, img_bgr)
 
+    # Write the dictionary to a JSON file
+    with open('Symbols Locations.json', 'w') as output:
+        json.dump(symbLocs, output)
+
     # Save and output the resulting image
     cv2.imwrite('output.png', img_bgr)
     plt.imshow(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB))
@@ -427,6 +454,12 @@ def cornersDetection():
         plt.imshow(tmp_bgr)
     plt.show()
 
+
+def locSaver(type, x1, y1, x2, y2):
+    symbLocs[type].append({
+        'Top-left': {'X': x1, 'Y': y1},
+        'Bottom-right': {'X': x2, 'Y': y2}
+    })
 
 if __name__ == '__main__':
     main()
