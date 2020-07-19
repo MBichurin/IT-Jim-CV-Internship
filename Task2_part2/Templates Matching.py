@@ -81,17 +81,261 @@ def matcher():
     #             img_gray_bUp[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]] = \
     #                 cv2.bitwise_or(img_gray_bUp[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]], getMask(tmp))
 
-    # 004
+    # # 004
+    # # Image to mark the found symbols on
+    # background = np.copy(img_bgr)
+    # for i in range(4):
+    #     methods = ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF',
+    #                'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF']
+    #     thresholds = [25, 25, 25, 25]
+    #
+    #     if i == 0:
+    #         # Read the template
+    #         tmp_name = 'symbols/004.png'
+    #         tmp = cv2.imread(tmp_name, cv2.IMREAD_GRAYSCALE)
+    #     else:
+    #         tmp = cv2.rotate(tmp, cv2.ROTATE_90_CLOCKWISE)
+    #
+    #     # Template matching
+    #     meth = eval(methods[i])
+    #     if meth in [cv2.TM_SQDIFF, cv2.TM_CCORR_NORMED]:
+    #         res = cv2.matchTemplate(img_gray, tmp, meth, mask=getMask(tmp))
+    #     else:
+    #         res = cv2.matchTemplate(img_gray, tmp, meth)
+    #
+    #     if meth in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
+    #         loc = np.where(res <= thresholds[i])
+    #     else:
+    #         loc = np.where(res >= thresholds[i])
+    #
+    #     for pt in zip(*loc[::-1]):
+    #         # Draw the found symbols
+    #         cv2.rectangle(background, pt, (pt[0] + tmp.shape[1], pt[1] + tmp.shape[0]), [0, 255, 0], 2)
+    #         # Erase them on the pic
+    #         img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]] = \
+    #             cv2.bitwise_or(img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]], getMask(tmp))
+    #
+    # # 002
+    # img_gray_bUp = np.copy(img_gray)
+    # # Image to mark the found symbols on
+    # background = np.copy(img_bgr)
+    # for i in range(4):
+    #     methods = ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF',
+    #                'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF']
+    #     thresholds = [35, 35, 40, 20]
+    #
+    #     if i == 0:
+    #         # Read the template
+    #         tmp_name = 'symbols/002.png'
+    #         tmp = cv2.imread(tmp_name, cv2.IMREAD_GRAYSCALE)
+    #     else:
+    #         tmp = cv2.rotate(tmp, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    #
+    #     # Template matching
+    #     meth = eval(methods[i])
+    #     if meth in [cv2.TM_SQDIFF, cv2.TM_CCORR_NORMED]:
+    #         res = cv2.matchTemplate(img_gray_bUp, tmp, meth, mask=getMask(tmp))
+    #     else:
+    #         res = cv2.matchTemplate(img_gray_bUp, tmp, meth)
+    #
+    #     if meth in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
+    #         loc = np.where(res <= thresholds[i])
+    #     else:
+    #         loc = np.where(res >= thresholds[i])
+    #
+    #     for pt in zip(*loc[::-1]):
+    #         # Draw the found symbols
+    #         cv2.rectangle(background, pt, (pt[0] + tmp.shape[1], pt[1] + tmp.shape[0]), [0, 255, 0], 2)
+    #         # Erase them on the pic
+    #         img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]] = \
+    #             cv2.bitwise_or(img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]], getMask(tmp))
+    #
+    # # 003
+    # # Image to mark the found symbols on
+    # background = np.copy(img_bgr)
+    # for i in range(4):
+    #     methods = ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF',
+    #                'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF']
+    #     thresholds = [23, 23, 23, 23]
+    #
+    #     if i == 0:
+    #         # Read the template
+    #         tmp_name = 'symbols/003.png'
+    #         tmp = cv2.imread(tmp_name, cv2.IMREAD_GRAYSCALE)
+    #     else:
+    #         tmp = cv2.rotate(tmp, cv2.ROTATE_90_CLOCKWISE)
+    #
+    #     # Template matching
+    #     meth = eval(methods[i])
+    #     if meth in [cv2.TM_SQDIFF, cv2.TM_CCORR_NORMED]:
+    #         res = cv2.matchTemplate(img_gray, tmp, meth, mask=getMask(tmp))
+    #     else:
+    #         res = cv2.matchTemplate(img_gray, tmp, meth)
+    #
+    #     if meth in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
+    #         loc = np.where(res <= thresholds[i])
+    #     else:
+    #         loc = np.where(res >= thresholds[i])
+    #
+    #     for pt in zip(*loc[::-1]):
+    #         # Draw the found symbols
+    #         cv2.rectangle(background, pt, (pt[0] + tmp.shape[1], pt[1] + tmp.shape[0]), [0, 255, 0], 2)
+    #         # Erase them on the pic
+    #         img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]] = \
+    #             cv2.bitwise_or(img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]], getMask(tmp))
+    #
+    # #008
+    # for i in range(4):
+    #     methods = ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF',
+    #                'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF']
+    #     thresholds = [25, 25, 25, 25]
+    #
+    #     if i == 0:
+    #         # Read the template
+    #         tmp_name = 'symbols/008.png'
+    #         tmp = cv2.imread(tmp_name, cv2.IMREAD_GRAYSCALE)
+    #     else:
+    #         tmp = cv2.rotate(tmp, cv2.ROTATE_90_CLOCKWISE)
+    #
+    #     # Template matching
+    #     meth = eval(methods[i])
+    #     if meth in [cv2.TM_SQDIFF, cv2.TM_CCORR_NORMED]:
+    #         res = cv2.matchTemplate(img_gray, tmp, meth, mask=getMask(tmp))
+    #     else:
+    #         res = cv2.matchTemplate(img_gray, tmp, meth)
+    #
+    #     # Image to mark the found symbols on
+    #     background = np.copy(img_bgr)
+    #
+    #     if meth in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
+    #         loc = np.where(res <= thresholds[i])
+    #     else:
+    #         loc = np.where(res >= thresholds[i])
+    #
+    #     for pt in zip(*loc[::-1]):
+    #         # Draw the found symbols
+    #         cv2.rectangle(background, pt, (pt[0] + tmp.shape[1], pt[1] + tmp.shape[0]), [0, 255, 0], 2)
+    #         # Erase them on the pic
+    #         img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]] =\
+    #             cv2.bitwise_or(img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]], getMask(tmp))
+    #
+    # #005
+    # for i in range(4):
+    #     methods = ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF',
+    #                'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF']
+    #     thresholds = [25, 25, 25, 25]
+    #
+    #     if i == 0:
+    #         # Read the template
+    #         tmp_name = 'symbols/005.png'
+    #         tmp = cv2.imread(tmp_name, cv2.IMREAD_GRAYSCALE)
+    #     else:
+    #         tmp = cv2.rotate(tmp, cv2.ROTATE_90_CLOCKWISE)
+    #
+    #     # Template matching
+    #     meth = eval(methods[i])
+    #     if meth in [cv2.TM_SQDIFF, cv2.TM_CCORR_NORMED]:
+    #         res = cv2.matchTemplate(img_gray, tmp, meth, mask=getMask(tmp))
+    #     else:
+    #         res = cv2.matchTemplate(img_gray, tmp, meth)
+    #
+    #     # Image to mark the found symbols on
+    #     background = np.copy(img_bgr)
+    #
+    #     if meth in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
+    #         loc = np.where(res <= thresholds[i])
+    #     else:
+    #         loc = np.where(res >= thresholds[i])
+    #
+    #     for pt in zip(*loc[::-1]):
+    #         # Draw the found symbols
+    #         cv2.rectangle(background, pt, (pt[0] + tmp.shape[1], pt[1] + tmp.shape[0]), [0, 255, 0], 2)
+    #         # Erase them on the pic
+    #         img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]] =\
+    #                 cv2.bitwise_or(img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]], getMask(tmp))
+    #
+    #
+    # #009
+    # for i in range(4):
+    #     methods = ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF',
+    #                'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF_NORMED']
+    #     thresholds = [25, 25, 25, 0.195]
+    #
+    #     if i == 0:
+    #         # Read the template
+    #         tmp_name = 'symbols/009.png'
+    #         tmp = cv2.imread(tmp_name, cv2.IMREAD_GRAYSCALE)
+    #     else:
+    #         tmp = cv2.rotate(tmp, cv2.ROTATE_90_CLOCKWISE)
+    #
+    #     # Template matching
+    #     meth = eval(methods[i])
+    #     if meth in [cv2.TM_SQDIFF, cv2.TM_CCORR_NORMED]:
+    #         res = cv2.matchTemplate(img_gray, tmp, meth, mask=getMask(tmp))
+    #     else:
+    #         res = cv2.matchTemplate(img_gray, tmp, meth)
+    #
+    #     # Image to mark the found symbols on
+    #     background = np.copy(img_bgr)
+    #
+    #     if meth in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
+    #         loc = np.where(res <= thresholds[i])
+    #     else:
+    #         loc = np.where(res >= thresholds[i])
+    #
+    #     cnt = 0
+    #     for pt in zip(*loc[::-1]):
+    #         cnt += 1
+    #         # Draw the found symbols
+    #         cv2.rectangle(background, pt, (pt[0] + tmp.shape[1], pt[1] + tmp.shape[0]), [0, 255, 0], 2)
+    #         # Don't erase them on the pic because they could intersect with other symbols
+    #
+    # #015
+    # for i in range(4):
+    #     methods = ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF',
+    #                'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF']
+    #     thresholds = [50, 65, 68, 70]
+    #
+    #     if i == 0:
+    #         # Read the template
+    #         tmp_name = 'symbols/015.png'
+    #         tmp = cv2.imread(tmp_name, cv2.IMREAD_GRAYSCALE)
+    #     else:
+    #         tmp = cv2.rotate(tmp, cv2.ROTATE_90_CLOCKWISE)
+    #
+    #     # Template matching
+    #     meth = eval(methods[i])
+    #     if meth in [cv2.TM_SQDIFF, cv2.TM_CCORR_NORMED]:
+    #         res = cv2.matchTemplate(img_gray, tmp, meth, mask=getMask(tmp))
+    #     else:
+    #         res = cv2.matchTemplate(img_gray, tmp, meth)
+    #
+    #     # Image to mark the found symbols on
+    #     background = np.copy(img_bgr)
+    #
+    #     if meth in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
+    #         loc = np.where(res <= thresholds[i])
+    #     else:
+    #         loc = np.where(res >= thresholds[i])
+    #
+    #     for pt in zip(*loc[::-1]):
+    #         # Draw the found symbols
+    #         cv2.rectangle(background, pt, (pt[0] + tmp.shape[1], pt[1] + tmp.shape[0]), [0, 255, 0], 2)
+    #         # Erase them on the pic
+    #         img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]] =\
+    #                 cv2.bitwise_or(img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]], getMask(tmp))
+
+    # 014
     # Image to mark the found symbols on
     background = np.copy(img_bgr)
     for i in range(4):
         methods = ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF',
                    'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF']
-        thresholds = [25, 25, 25, 25]
+        thresholds = [30, 30, 30, 30]
 
         if i == 0:
             # Read the template
-            tmp_name = 'symbols/004.png'
+            tmp_name = 'symbols/014.png'
             tmp = cv2.imread(tmp_name, cv2.IMREAD_GRAYSCALE)
         else:
             tmp = cv2.rotate(tmp, cv2.ROTATE_90_CLOCKWISE)
@@ -115,28 +359,27 @@ def matcher():
             img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]] = \
                 cv2.bitwise_or(img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]], getMask(tmp))
 
-    # 002
-    img_gray_bUp = np.copy(img_gray)
+    # 013
     # Image to mark the found symbols on
     background = np.copy(img_bgr)
     for i in range(4):
         methods = ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF',
                    'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF']
-        thresholds = [35, 35, 40, 20]
+        thresholds = [40, 40, 40, 40]
 
         if i == 0:
             # Read the template
-            tmp_name = 'symbols/002.png'
+            tmp_name = 'symbols/013.png'
             tmp = cv2.imread(tmp_name, cv2.IMREAD_GRAYSCALE)
         else:
-            tmp = cv2.rotate(tmp, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            tmp = cv2.rotate(tmp, cv2.ROTATE_90_CLOCKWISE)
 
         # Template matching
         meth = eval(methods[i])
         if meth in [cv2.TM_SQDIFF, cv2.TM_CCORR_NORMED]:
-            res = cv2.matchTemplate(img_gray_bUp, tmp, meth, mask=getMask(tmp))
+            res = cv2.matchTemplate(img_gray, tmp, meth, mask=getMask(tmp))
         else:
-            res = cv2.matchTemplate(img_gray_bUp, tmp, meth)
+            res = cv2.matchTemplate(img_gray, tmp, meth)
 
         if meth in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
             loc = np.where(res <= thresholds[i])
@@ -150,20 +393,17 @@ def matcher():
             img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]] = \
                 cv2.bitwise_or(img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]], getMask(tmp))
 
-    # 003
-    # Image to mark the found symbols on
-    background = np.copy(img_bgr)
-    for i in range(4):
-        methods = ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF',
-                   'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF']
-        thresholds = [23, 23, 23, 23]
+    # 011
+    for i in range(2):
+        methods = ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF']
+        thresholds = [0, 40]
 
         if i == 0:
             # Read the template
-            tmp_name = 'symbols/003.png'
+            tmp_name = 'symbols/011.png'
             tmp = cv2.imread(tmp_name, cv2.IMREAD_GRAYSCALE)
         else:
-            tmp = cv2.rotate(tmp, cv2.ROTATE_90_CLOCKWISE)
+            tmp = tmp[:tmp.shape[1], :tmp.shape[1]]
 
         # Template matching
         meth = eval(methods[i])
@@ -171,6 +411,77 @@ def matcher():
             res = cv2.matchTemplate(img_gray, tmp, meth, mask=getMask(tmp))
         else:
             res = cv2.matchTemplate(img_gray, tmp, meth)
+
+        # Image to mark the found symbols on
+        background = np.copy(img_bgr)
+
+        if meth in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
+            loc = np.where(res <= thresholds[i])
+        else:
+            loc = np.where(res >= thresholds[i])
+
+        for pt in zip(*loc[::-1]):
+            # Draw the found symbols
+            cv2.rectangle(background, pt, (pt[0] + tmp.shape[1], pt[1] + tmp.shape[0]), [0, 255, 0], 2)
+            # Erase them on the pic
+            img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]] = \
+                cv2.bitwise_or(img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]], getMask(tmp))
+
+    # 012
+    for i in range(2):
+        methods = ['cv2.TM_SQDIFF', 'cv2.TM_CCOEFF']
+        thresholds = [25, 5500000]
+
+        if i == 0:
+            # Read the template
+            tmp_name = 'symbols/012.png'
+            tmp = cv2.imread(tmp_name, cv2.IMREAD_GRAYSCALE)
+        else:
+            tmp = tmp[:tmp.shape[1], :tmp.shape[1]]
+
+        # Template matching
+        meth = eval(methods[i])
+        if meth in [cv2.TM_SQDIFF, cv2.TM_CCORR_NORMED]:
+            res = cv2.matchTemplate(img_gray, tmp, meth, mask=getMask(tmp))
+        else:
+            res = cv2.matchTemplate(img_gray, tmp, meth)
+
+        # Image to mark the found symbols on
+        background = np.copy(img_bgr)
+
+        if meth in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
+            loc = np.where(res <= thresholds[i])
+        else:
+            loc = np.where(res >= thresholds[i])
+
+        for pt in zip(*loc[::-1]):
+            # Draw the found symbols
+            cv2.rectangle(background, pt, (pt[0] + tmp.shape[1], pt[1] + tmp.shape[0]), [0, 255, 0], 2)
+            # Erase them on the pic
+            img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]] = \
+                cv2.bitwise_or(img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]], getMask(tmp))
+
+    # 010
+    for i in range(2):
+        methods = ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF']
+        thresholds = [0, 45]
+
+        if i == 0:
+            # Read the template
+            tmp_name = 'symbols/010.png'
+            tmp = cv2.imread(tmp_name, cv2.IMREAD_GRAYSCALE)
+        else:
+            tmp = tmp[:tmp.shape[1], :tmp.shape[1]]
+
+        # Template matching
+        meth = eval(methods[i])
+        if meth in [cv2.TM_SQDIFF, cv2.TM_CCORR_NORMED]:
+            res = cv2.matchTemplate(img_gray, tmp, meth, mask=getMask(tmp))
+        else:
+            res = cv2.matchTemplate(img_gray, tmp, meth)
+
+        # Image to mark the found symbols on
+        background = np.copy(img_bgr)
 
         if meth in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
             loc = np.where(res <= thresholds[i])
@@ -187,171 +498,12 @@ def matcher():
                 cv2.bitwise_or(img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]], getMask(tmp))
         print(cnt)
 
-    plt.imshow(background)
-    plt.show()
-
-    #008
-    for i in range(4):
-        methods = ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF',
-                   'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF']
-        thresholds = [25, 25, 25, 25]
-
-        if i == 0:
-            # Read the template
-            tmp_name = 'symbols/008.png'
-            tmp = cv2.imread(tmp_name, cv2.IMREAD_GRAYSCALE)
-        else:
-            tmp = cv2.rotate(tmp, cv2.ROTATE_90_CLOCKWISE)
-
-        # Template matching
-        meth = eval(methods[i])
-        if meth in [cv2.TM_SQDIFF, cv2.TM_CCORR_NORMED]:
-            res = cv2.matchTemplate(img_gray, tmp, meth, mask=getMask(tmp))
-        else:
-            res = cv2.matchTemplate(img_gray, tmp, meth)
-
-        # Image to mark the found symbols on
-        background = np.copy(img_bgr)
-
-        if meth in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
-            loc = np.where(res <= thresholds[i])
-        else:
-            loc = np.where(res >= thresholds[i])
-
-        for pt in zip(*loc[::-1]):
-            # Draw the found symbols
-            cv2.rectangle(background, pt, (pt[0] + tmp.shape[1], pt[1] + tmp.shape[0]), [0, 255, 0], 2)
-            # Erase them on the pic
-            img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]] =\
-                cv2.bitwise_or(img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]], getMask(tmp))
-
-    #005
-    for i in range(4):
-        methods = ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF',
-                   'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF']
-        thresholds = [25, 25, 25, 25]
-
-        if i == 0:
-            # Read the template
-            tmp_name = 'symbols/005.png'
-            tmp = cv2.imread(tmp_name, cv2.IMREAD_GRAYSCALE)
-        else:
-            tmp = cv2.rotate(tmp, cv2.ROTATE_90_CLOCKWISE)
-
-        # Template matching
-        meth = eval(methods[i])
-        if meth in [cv2.TM_SQDIFF, cv2.TM_CCORR_NORMED]:
-            res = cv2.matchTemplate(img_gray, tmp, meth, mask=getMask(tmp))
-        else:
-            res = cv2.matchTemplate(img_gray, tmp, meth)
-
-        # Image to mark the found symbols on
-        background = np.copy(img_bgr)
-
-        if meth in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
-            loc = np.where(res <= thresholds[i])
-        else:
-            loc = np.where(res >= thresholds[i])
-
-        for pt in zip(*loc[::-1]):
-            # Draw the found symbols
-            cv2.rectangle(background, pt, (pt[0] + tmp.shape[1], pt[1] + tmp.shape[0]), [0, 255, 0], 2)
-            # Erase them on the pic
-            img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]] =\
-                    cv2.bitwise_or(img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]], getMask(tmp))
-
-
-    #009
-    for i in range(4):
-        methods = ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF',
-                   'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF_NORMED']
-        thresholds = [25, 25, 25, 0.195]
-
-        if i == 0:
-            # Read the template
-            tmp_name = 'symbols/009.png'
-            tmp = cv2.imread(tmp_name, cv2.IMREAD_GRAYSCALE)
-        else:
-            tmp = cv2.rotate(tmp, cv2.ROTATE_90_CLOCKWISE)
-
-        # Template matching
-        meth = eval(methods[i])
-        if meth in [cv2.TM_SQDIFF, cv2.TM_CCORR_NORMED]:
-            res = cv2.matchTemplate(img_gray, tmp, meth, mask=getMask(tmp))
-        else:
-            res = cv2.matchTemplate(img_gray, tmp, meth)
-
-        # Image to mark the found symbols on
-        background = np.copy(img_bgr)
-
-        if meth in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
-            loc = np.where(res <= thresholds[i])
-        else:
-            loc = np.where(res >= thresholds[i])
-
-        cnt = 0
-        for pt in zip(*loc[::-1]):
-            cnt += 1
-            # Draw the found symbols
-            cv2.rectangle(background, pt, (pt[0] + tmp.shape[1], pt[1] + tmp.shape[0]), [0, 255, 0], 2)
-            # Don't erase them on the pic because they could intersect with other symbols
-
-    #015
-    for i in range(4):
-        methods = ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF',
-                   'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF']
-        thresholds = [50, 65, 68, 70]
-
-        if i == 0:
-            # Read the template
-            tmp_name = 'symbols/015.png'
-            tmp = cv2.imread(tmp_name, cv2.IMREAD_GRAYSCALE)
-        else:
-            tmp = cv2.rotate(tmp, cv2.ROTATE_90_CLOCKWISE)
-
-        # Template matching
-        meth = eval(methods[i])
-        if meth in [cv2.TM_SQDIFF, cv2.TM_CCORR_NORMED]:
-            res = cv2.matchTemplate(img_gray, tmp, meth, mask=getMask(tmp))
-        else:
-            res = cv2.matchTemplate(img_gray, tmp, meth)
-
-        # Image to mark the found symbols on
-        background = np.copy(img_bgr)
-
-        if meth in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
-            loc = np.where(res <= thresholds[i])
-        else:
-            loc = np.where(res >= thresholds[i])
-
-        for pt in zip(*loc[::-1]):
-            # Draw the found symbols
-            cv2.rectangle(background, pt, (pt[0] + tmp.shape[1], pt[1] + tmp.shape[0]), [0, 255, 0], 2)
-            # Erase them on the pic
-            img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]] =\
-                    cv2.bitwise_or(img_gray[pt[1]:pt[1] + tmp.shape[0], pt[0]:pt[0] + tmp.shape[1]], getMask(tmp))
-
-
-
-    '''for i in range(16):
-        if i < 9:
-            tmp_name = 'symbols/00' + str(i + 1) + '.png'
-        else:
-            tmp_name = 'symbols/0' + str(i + 1) + '.png'
-        tmp = cv2.imread(tmp_name, cv2.IMREAD_GRAYSCALE)
-
-        res = cv2.matchTemplate(img_gray, tmp, cv2.TM_CCOEFF_NORMED)
-
-        background = np.copy(img_bgr)
-
-        loc = np.where(res >= 0.7)
-        for pt in zip(*loc[::-1]):
-            cv2.rectangle(background, pt, (pt[0] + tmp.shape[1], pt[1] + tmp.shape[0]), [0, 255, 0], 2)
-
         plt.imshow(background)
-        plt.show()'''
+        plt.show()
 
-    '''fig = plt.figure(figsize=(6, 6))
+
+def cornersDetection():
+    fig = plt.figure(figsize=(6, 6))
 
     for i in range(16):
         if i < 9:
@@ -373,9 +525,7 @@ def matcher():
         axis = fig.add_subplot(4, 4, i + 1)
         axis.set_xticks([]), axis.set_yticks([])
         plt.imshow(tmp_bgr)
-    plt.show()'''
-
-
+    plt.show()
 
 
 if __name__ == '__main__':
