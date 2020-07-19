@@ -115,7 +115,8 @@ def matcher(img_bgr, objs, num, shape):
                 # White text labels
                 if num == 5 or num == 8 or 12 <= num <= 15:
                     cv2.putText(img_bgr, name, (x - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (255, 255, 255), 1)
-                    cv2.putText(img_bgr, name, (x - 1, y + shape[0] + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (255, 255, 255), 1)
+                    cv2.putText(img_bgr, name, (x - 1, y + shape[0] + 7), cv2.FONT_HERSHEY_PLAIN, 0.6,
+                                (255, 255, 255), 1)
                 # Black text labels
                 else:
                     cv2.putText(img_bgr, name, (x - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (0, 0, 0), 1)
@@ -139,7 +140,8 @@ def matcher(img_bgr, objs, num, shape):
                 # White text labels
                 if num == 5 or num == 8 or 12 <= num <= 15:
                     cv2.putText(img_bgr, name, (x - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (255, 255, 255), 1)
-                    cv2.putText(img_bgr, name, (x + shape[1] - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (255, 255, 255), 1)
+                    cv2.putText(img_bgr, name, (x + shape[1] - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6,
+                                (255, 255, 255), 1)
                 # Black text labels
                 else:
                     cv2.putText(img_bgr, name, (x - 1, y + 7), cv2.FONT_HERSHEY_PLAIN, 0.6, (0, 0, 0), 1)
@@ -384,31 +386,40 @@ def main():
     img_gray, img_bgr = solve_1(img_gray, img_bgr)
 
     # 004
-    img_gray, img_bgr = solve_3to5_8_9_13to15(4, ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF'], [25, 25, 25, 25], True, img_gray, img_bgr)
+    img_gray, img_bgr = solve_3to5_8_9_13to15(4, ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF'],
+                                              [25, 25, 25, 25], True, img_gray, img_bgr)
 
     # 002
     img_gray, img_bgr = solve_2(img_gray, img_bgr)
 
     # 003
-    img_gray, img_bgr = solve_3to5_8_9_13to15(3, ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF'], [23, 23, 23, 23], True, img_gray, img_bgr)
+    img_gray, img_bgr = solve_3to5_8_9_13to15(3, ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF'],
+                                              [23, 23, 23, 23], True, img_gray, img_bgr)
 
     # 008
-    img_gray, img_bgr = solve_3to5_8_9_13to15(8, ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF'], [25, 25, 25, 25], True, img_gray, img_bgr)
+    img_gray, img_bgr = solve_3to5_8_9_13to15(8, ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF'],
+                                              [25, 25, 25, 25], True, img_gray, img_bgr)
 
     # 005
-    img_gray, img_bgr = solve_3to5_8_9_13to15(5, ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF'], [25, 25, 25, 25], True, img_gray, img_bgr)
+    img_gray, img_bgr = solve_3to5_8_9_13to15(5, ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF'],
+                                              [25, 25, 25, 25], True, img_gray, img_bgr)
 
     # 009
-    img_gray, img_bgr = solve_3to5_8_9_13to15(9, ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF_NORMED'], [25, 25, 25, 0.195], False, img_gray, img_bgr)
+    img_gray, img_bgr = solve_3to5_8_9_13to15(9, ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF',
+                                                  'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF_NORMED'],
+                                              [25, 25, 25, 0.195], False, img_gray, img_bgr)
 
     # 015
-    img_gray, img_bgr = solve_3to5_8_9_13to15(15, ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF'], [50, 65, 68, 70], True, img_gray, img_bgr)
+    img_gray, img_bgr = solve_3to5_8_9_13to15(15, ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF'],
+                                              [50, 65, 68, 70], True, img_gray, img_bgr)
 
     # 014
-    img_gray, img_bgr = solve_3to5_8_9_13to15(14, ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF'], [30, 30, 30, 30], True, img_gray, img_bgr)
+    img_gray, img_bgr = solve_3to5_8_9_13to15(14, ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF'],
+                                              [30, 30, 30, 30], True, img_gray, img_bgr)
 
     # 013
-    img_gray, img_bgr = solve_3to5_8_9_13to15(13, ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF'], [40, 40, 40, 40], True, img_gray, img_bgr)
+    img_gray, img_bgr = solve_3to5_8_9_13to15(13, ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF'],
+                                              [40, 40, 40, 40], True, img_gray, img_bgr)
 
     # 011
     img_gray, img_bgr = solve_10to12(11, ['cv2.TM_SQDIFF', 'cv2.TM_SQDIFF'], [0, 40], img_gray, img_bgr)
