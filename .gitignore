@@ -1,8 +1,10 @@
 .idea/
 *.txt
 *.avi
+*.mp4
 *.zip
 *.png
+*.jpg
 *.xcf
 *.json
 filters_test.py
