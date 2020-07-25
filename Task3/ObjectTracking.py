@@ -2,23 +2,22 @@ import numpy as np
 import cv2
 
 
-def orb_tracker(img, prev, prev_pts):
-    lk_params = dict(winSize=(35, 35),
-                     maxLevel=4,
+def of_tracker(img, prev, prev_pts):
+    lk_params = dict(winSize=(40, 40),
+                     maxLevel=30,
                      criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
     # calculate optical flow
     pts, st, err = cv2.calcOpticalFlowPyrLK(prev, img, prev_pts, None, **lk_params)
-    successful = (st == 1)
+
+    successful = ((st == 1) & (err < 25))
     if np.sum(successful) == 0:
-        return None
+        return None, None
 
     prev_pts = prev_pts.reshape(-1, 1, 2)
     pts = pts.reshape(-1, 1, 2)
     prev_pts = prev_pts[successful]
     pts = pts[successful]
     return prev_pts, pts
-
-
 
 
 def orb_detector(img, tmp):
@@ -49,14 +48,20 @@ def orb_detector(img, tmp):
 
 
 def boundingRect(img, prev, tmp, algo, prev_pts, prev_rect):
-    if (algo == 2) and (prev_pts is not None):
-        prev_pts, img_pts = orb_tracker(img, prev, prev_pts)
+    key = cv2.waitKey(1)
 
-        if len(img_pts) >= 10:
+    if (algo == 2) and (prev_pts is not None) and (key != ord('1')):
+        prev_pts, img_pts = of_tracker(img, prev, prev_pts)
+
+        if (img_pts is not None) and (len(img_pts) >= 10):
             # Get the homography matrix and the matches mask
             hom_Mat, matchMask = cv2.findHomography(prev_pts, img_pts, cv2.RANSAC, 5.0)
             # Deform the rectangle on the detected chocolate
             rect = cv2.perspectiveTransform(prev_rect, hom_Mat)
+
+            if rect is not None:
+                cv2.polylines(frm, [np.int32(rect)], True, (0, 255, 0), 3)
+
             return img_pts, rect
 
     img_pts, tmp_pts = orb_detector(img, tmp)
@@ -70,6 +75,10 @@ def boundingRect(img, prev, tmp, algo, prev_pts, prev_rect):
         rect = cv2.perspectiveTransform(tmp_corners, hom_Mat)
     else:
         rect = None
+
+    if rect is not None:
+        cv2.polylines(frm, [np.int32(rect)], True, (0, 0, 255), 3)
+
     return img_pts, rect
 
 
@@ -105,9 +114,6 @@ if __name__ == '__main__':
         prev_pts, prev_rect = boundingRect(frm, prev, tmp, ALGO, prev_pts, prev_rect)
 
         prev = np.copy(frm)
-
-        if prev_rect is not None:
-            cv2.polylines(frm, [np.int32(prev_rect)], True, (0, 255, 0), 3)
 
         cv2.imshow('Win', cv2.resize(frm, (int(frm.shape[1] * 0.7), int(frm.shape[0] * 0.7))))
 
