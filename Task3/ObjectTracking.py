@@ -3,13 +3,14 @@ import cv2
 
 
 def of_tracker(img, prev, prev_pts):
-    lk_params = dict(winSize=(40, 40),
+    lk_params = dict(winSize=(15, 15),
                      maxLevel=30,
                      criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
     # calculate optical flow
     pts, st, err = cv2.calcOpticalFlowPyrLK(prev, img, prev_pts, None, **lk_params)
-
-    successful = ((st == 1) & (err < 25))
+    print(max(err * st))
+    # successful = ((st == 1) & (err < 40))
+    successful = (st == 1)
     if np.sum(successful) == 0:
         return None, None
 
@@ -22,7 +23,7 @@ def of_tracker(img, prev, prev_pts):
 
 def orb_detector(img, tmp):
     # ORB
-    orb = cv2.ORB_create(1000, 1.2, 30)
+    orb = cv2.ORB_create(10000, 1.2, 40)
     # Keypoints and descriptors of img and tmp
     kp_img, des_img = orb.detectAndCompute(img, None)
     kp_tmp, des_tmp = orb.detectAndCompute(tmp, None)
@@ -55,7 +56,7 @@ def boundingRect(img, prev, tmp, algo, prev_pts, prev_rect):
 
         if (img_pts is not None) and (len(img_pts) >= 10):
             # Get the homography matrix and the matches mask
-            hom_Mat, matchMask = cv2.findHomography(prev_pts, img_pts, cv2.RANSAC, 5.0)
+            hom_Mat, matchMask = cv2.findHomography(prev_pts, img_pts, cv2.RANSAC, 10.0)
             # Deform the rectangle on the detected chocolate
             rect = cv2.perspectiveTransform(prev_rect, hom_Mat)
 
