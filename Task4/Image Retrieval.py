@@ -3,10 +3,10 @@ import cv2
 import os
 
 
-def get_features(img):
+def get_segmhist_fts(img):
     # Number of segments in a row/column; bins number; height and width
     segm_n = 7
-    bins = (8, 8, 3)
+    bins = (20, 2, 2)
     h, w = img.shape[:2]
     # Calculate segments
     segments = [(0, 0, 0, 0)] * (segm_n * segm_n)
@@ -48,7 +48,7 @@ def calc_dataset_fts():
             img = cv2.imread(filename)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
             # Get features of the example image
-            fts_set.extend([get_features(img)])
+            fts_set.extend([get_segmhist_fts(img)])
     print('The hole dataset\'s features are calculated!')
 
 
@@ -62,7 +62,7 @@ def segm_hist_search(img_name):
     img_ex = cv2.imread(img_name)
     img_ex = cv2.cvtColor(img_ex, cv2.COLOR_BGR2HSV)
     # Features of the example image
-    fts_ex = get_features(img_ex)
+    fts_ex = get_segmhist_fts(img_ex)
 
     # Calculate distances and sort them
     Dists = [(0, 0)] * files_n
@@ -81,4 +81,4 @@ def segm_hist_search(img_name):
 
 if __name__ == '__main__':
     calc_dataset_fts()
-    segm_hist_search('dataset/n01855672/n0185567200000010.jpg')
+    segm_hist_search('dataset/n01855672/n0185567200000004.jpg')
