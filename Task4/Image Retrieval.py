@@ -86,21 +86,20 @@ def segm_hist_search(img_name):
 # Number of words/clusters
 words_n = 16 * 20
 # ORB
-orb = cv2.ORB_create(100)
+orb = cv2.ORB_create(30)
 
 
 def fill_vocabulary():
     # Descriptors
     descriptors = None
 
-    i = 0
-
-    file_n = 0
+    # Number of files
+    global files_n
+    files_n = 0
 
     # Iterate through all the files in the dataset
     for subdir, ris, files in os.walk('dataset'):
         for file in files:
-            i += 1
 
             files_n += 1
 
@@ -136,14 +135,14 @@ def fill_vocabulary():
 
             # cv2.imshow('Win', cv2.resize(img, (img.shape[1] * 4, img.shape[0] * 4)))
             # cv2.waitKey(0)
-        if i == 100:
-            break
 
     # K-means
     descriptors = np.float32(descriptors)
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1)
     global ret, label, center
     ret, label, center = cv2.kmeans(descriptors, words_n, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+
+    print('The vocabulary is ready!')
 
 
 def get_cluster(des):
@@ -161,11 +160,13 @@ def describe_pic(img):
     word_percent = np.zeros(words_n)
     key, des = orb.detectAndCompute(img, None)
     des_n = 0
-    for d in des:
-        word = get_cluster(d)
-        word_percent[word] += 1
-        des_n += 1
-    word_percent /= des_n
+    if des is not None:
+        for d in des:
+            word = get_cluster(d)
+            word_percent[word] += 1
+            des_n += 1
+    if des_n != 0:
+        word_percent /= des_n
     return word_percent
 
 
@@ -176,31 +177,21 @@ def bow_search(img_name):
 
     # Calculate distances and sort them
     Dists = [(0, 0)] * files_n
-    for i, (filename, fts) in enumerate(zip(filenames, fts_set)):
+    for i, filename in enumerate(filenames):
         # Read an image and describe it using words
         img = cv2.imread(filename)
         word_percent = describe_pic(img)
-        Dists[i] = (distance(fts_ex, fts, 1), filename)
+        Dists[i] = (distance(word_percent_ex, word_percent, 1), filename)
     print('The example image is compared with the dataset\'s images!')
     Dists = sorted(Dists)
     print('Sorted!')
-    cv2.imshow('Ex', cv2.cvtColor(img_ex, cv2.COLOR_HSV2BGR))
+    print(Dists)
+    cv2.imshow('Ex', img_ex)
     for i in range(5):
         print(Dists[i][0])
         match = cv2.imread(Dists[i][1])
         cv2.imshow('Top' + str(i + 1), match)
     cv2.waitKey(0)
-
-    i = 0
-
-    # Iterate through all the files in the dataset
-    for subdir, ris, files in os.walk('dataset'):
-        for file in files:
-            i += 1
-            # Read an image and describe it using words
-            filename = os.path.join(subdir, file)
-            img = cv2.imread(filename)
-            word_percent = describe_pic(img)
 
 
 if __name__ == '__main__':
@@ -210,4 +201,4 @@ if __name__ == '__main__':
 
     ''' BoW '''
     fill_vocabulary()
-    bow_search('dataset/n02091244/n0209124400000005.jpg')
+    bow_search('dataset/n01855672/n0185567200000004.jpg')
