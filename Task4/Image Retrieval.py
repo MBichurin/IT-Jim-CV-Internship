@@ -17,6 +17,7 @@ def get_segmhist_fts(img):
     # Features vector
     features = []
 
+    # Sliding window
     for (x0, y0, x1, y1) in segments:
         # Get the mask of the segment
         segm_mask = np.zeros((h, w), dtype=np.uint8)
@@ -38,6 +39,7 @@ def calc_dataset_fts():
     # Number of files
     global files_n
     files_n = 0
+
     # Iterate through all the files in the dataset
     for subdir, ris, files in os.walk('dataset'):
         for file in files:
@@ -47,7 +49,7 @@ def calc_dataset_fts():
             filenames.extend([filename])
             img = cv2.imread(filename)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-            # Get features of the example image
+            # Get features of an image
             fts_set.extend([get_segmhist_fts(img)])
     print('The hole dataset\'s features are calculated!')
 
@@ -76,11 +78,12 @@ def segm_hist_search(img_name):
     Dists = sorted(Dists)
     print('Sorted!')
 
+    # Get top-5 matches and visualise them
     matches = []
-
     for i in range(5):
         print(Dists[i][0])
         matches.extend([cv2.imread(Dists[i][1])])
+    img_ex = cv2.cvtColor(img_ex, cv2.COLOR_HSV2BGR)
     visualise(img_ex, matches)
 
 
@@ -101,7 +104,6 @@ def fill_vocabulary():
     # Iterate through all the files in the dataset
     for subdir, ris, files in os.walk('dataset'):
         for file in files:
-
             files_n += 1
 
             # Read an image and remember its name
@@ -125,8 +127,8 @@ def fill_vocabulary():
             # print(key)
             # img = cv2.drawKeypoints(img, key, img)
 
+            # Get orb descriptors, add them to the list
             key, des = orb.detectAndCompute(img, None)
-            cv2.drawKeypoints(img, key, img)
             des = np.array(des)
             if des is not None:
                 if descriptors is not None and des.shape != ():
@@ -134,6 +136,7 @@ def fill_vocabulary():
                 if descriptors is None:
                     descriptors = des
 
+            # cv2.drawKeypoints(img, key, img)
             # cv2.imshow('Win', cv2.resize(img, (img.shape[1] * 4, img.shape[0] * 4)))
             # cv2.waitKey(0)
 
@@ -158,6 +161,7 @@ def get_cluster(des):
 
 
 def describe_pic(img):
+    # Percentage of words' occurrences
     word_percent = np.zeros(words_n)
     key, des = orb.detectAndCompute(img, None)
     des_n = 0
@@ -166,6 +170,7 @@ def describe_pic(img):
             word = get_cluster(d)
             word_percent[word] += 1
             des_n += 1
+    # Normalize
     if des_n != 0:
         word_percent /= des_n
     return word_percent
@@ -187,8 +192,8 @@ def bow_search(img_name):
     Dists = sorted(Dists)
     print('Sorted!')
 
+    # Get top-5 matches and visualise them
     matches = []
-
     for i in range(5):
         print(Dists[i][0])
         matches.extend([cv2.imread(Dists[i][1])])
@@ -218,7 +223,7 @@ def calc_hog_fts():
             filename = os.path.join(subdir, file)
             filenames.extend([filename])
             img = cv2.imread(filename)
-            # Get features of the example image
+            # Get features of an image
             fts_set.extend([get_hog_fts(img)])
     print('The hole dataset\'s features are calculated!')
 
@@ -237,8 +242,8 @@ def hog_search(img_name):
     Dists = sorted(Dists)
     print('Sorted!')
 
+    # Get top-5 matches and visualise them
     matches = []
-
     for i in range(5):
         print(Dists[i][0])
         matches.extend([cv2.imread(Dists[i][1])])
@@ -246,44 +251,58 @@ def hog_search(img_name):
 
 
 def visualise(img_ex, top5):
+    # Distance between pictures, borders and texts; sizes of pics and texts
     gap = 20
     textSize = 30
     picSize = 84 * 2
 
+    # Resize the example image
     img_ex = cv2.resize(img_ex, (picSize, picSize))
 
+    # The main image for visualisation
     img_window = np.zeros((2 * picSize + 5 * gap + 2 * textSize, 5 * picSize + 6 * gap, 3), dtype=np.uint8)
 
+    # Coordinates of the example image
     y0 = 2 * gap + textSize
     y1 = y0 + picSize
     x0 = 2 * picSize + 3 * gap
     x1 = x0 + picSize
+    # Draw the example image
     img_window[y0:y1, x0:x1] = img_ex
+    # Text description
     cv2.putText(img_window, 'Example:', (2 * picSize + 3 * gap + 5, gap + textSize), cv2.FONT_HERSHEY_SIMPLEX, 1,
                 (255, 255, 255), 2)
 
+    # Starting coordinates of matches
     y0 = picSize + 4 * gap + 2 * textSize
     y1 = y0 + picSize
     x0 = gap
     x1 = x0 + picSize
     for i in range(5):
+        # Draw a match
         img_window[y0:y1, x0:x1] = cv2.resize(top5[i], (picSize, picSize))
+        # Set next coordinates
         x0 = x1 + gap
         x1 = x0 + picSize
+        # Text description
         cv2.putText(img_window, 'Top ' + str(i + 1) + ':',
                     ((i + 1) * gap + i * picSize + 5, picSize + 3 * gap + 2 * textSize), cv2.FONT_HERSHEY_SIMPLEX, 1,
                     (255, 255, 255), 2)
 
+    # Algo's name
     algos = ['Local Histograms', 'BoW', 'HOG']
     cv2.putText(img_window, '[' + algos[ALGO - 1] + ']', (30, 40), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1,
                 (255, 255, 255), 1)
-
+    # Show the result
     cv2.imshow('Image Retrieval', img_window)
     cv2.waitKey(0)
 
 
 if __name__ == '__main__':
     global ALGO
+    # 3rd seems to be the best
+    # 1st is a bit slower and worse
+    # 2nd is slow and shitty
     ALGO = 3
 
     # Local Histograms
@@ -297,6 +316,12 @@ if __name__ == '__main__':
         calc_hog_fts()
 
     for filename in filenames:
-        # segm_hist_search(filename)
-        # bow_search(filename)
-        hog_search(filename)
+        # Local Histograms
+        if ALGO == 1:
+            segm_hist_search(filename)
+        # BoW
+        elif ALGO == 2:
+            bow_search(filename)
+        # HOG
+        else:
+            hog_search(filename)
