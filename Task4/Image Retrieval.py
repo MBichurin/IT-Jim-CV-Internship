@@ -75,12 +75,13 @@ def segm_hist_search(img_name):
     print('The example image is compared with the dataset\'s images!')
     Dists = sorted(Dists)
     print('Sorted!')
-    cv2.imshow('Ex', cv2.cvtColor(img_ex, cv2.COLOR_HSV2BGR))
+
+    matches = []
+
     for i in range(5):
         print(Dists[i][0])
-        match = cv2.imread(Dists[i][1])
-        cv2.imshow('Top' + str(i + 1), match)
-    cv2.waitKey(0)
+        matches.extend([cv2.imread(Dists[i][1])])
+    visualise(img_ex, matches)
 
 
 # Number of words/clusters
@@ -185,20 +186,117 @@ def bow_search(img_name):
     print('The example image is compared with the dataset\'s images!')
     Dists = sorted(Dists)
     print('Sorted!')
-    print(Dists)
-    cv2.imshow('Ex', img_ex)
+
+    matches = []
+
     for i in range(5):
         print(Dists[i][0])
-        match = cv2.imread(Dists[i][1])
-        cv2.imshow('Top' + str(i + 1), match)
+        matches.extend([cv2.imread(Dists[i][1])])
+    visualise(img_ex, matches)
+
+
+# HOG
+hog = cv2.HOGDescriptor((64, 64), (16, 16), (8, 8), (8, 8), 9, 1, 4.0, 0, 0.2, 0,
+                        cv2.HOGDESCRIPTOR_DEFAULT_NLEVELS)
+
+
+def get_hog_fts(img):
+    img = cv2.resize(img, (64, 64))
+    des = hog.compute(img).reshape(-1)
+    return des
+
+
+def calc_hog_fts():
+    # Number of files
+    global files_n
+    files_n = 0
+    # Iterate through all the files in the dataset
+    for subdir, ris, files in os.walk('dataset'):
+        for file in files:
+            files_n += 1
+            # Read an image and remember its name
+            filename = os.path.join(subdir, file)
+            filenames.extend([filename])
+            img = cv2.imread(filename)
+            # Get features of the example image
+            fts_set.extend([get_hog_fts(img)])
+    print('The hole dataset\'s features are calculated!')
+
+
+def hog_search(img_name):
+    # Read the example image
+    img_ex = cv2.imread(img_name)
+    # Features of the example image
+    fts_ex = get_hog_fts(img_ex)
+
+    # Calculate distances and sort them
+    Dists = [(0, 0)] * files_n
+    for i, (filename, fts) in enumerate(zip(filenames, fts_set)):
+        Dists[i] = (distance(fts_ex, fts, 1), filename)
+    print('The example image is compared with the dataset\'s images!')
+    Dists = sorted(Dists)
+    print('Sorted!')
+
+    matches = []
+
+    for i in range(5):
+        print(Dists[i][0])
+        matches.extend([cv2.imread(Dists[i][1])])
+    visualise(img_ex, matches)
+
+
+def visualise(img_ex, top5):
+    gap = 20
+    textSize = 30
+    picSize = 84 * 2
+
+    img_ex = cv2.resize(img_ex, (picSize, picSize))
+
+    img_window = np.zeros((2 * picSize + 5 * gap + 2 * textSize, 5 * picSize + 6 * gap, 3), dtype=np.uint8)
+
+    y0 = 2 * gap + textSize
+    y1 = y0 + picSize
+    x0 = 2 * picSize + 3 * gap
+    x1 = x0 + picSize
+    img_window[y0:y1, x0:x1] = img_ex
+    cv2.putText(img_window, 'Example:', (2 * picSize + 3 * gap + 5, gap + textSize), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                (255, 255, 255), 2)
+
+    y0 = picSize + 4 * gap + 2 * textSize
+    y1 = y0 + picSize
+    x0 = gap
+    x1 = x0 + picSize
+    for i in range(5):
+        img_window[y0:y1, x0:x1] = cv2.resize(top5[i], (picSize, picSize))
+        x0 = x1 + gap
+        x1 = x0 + picSize
+        cv2.putText(img_window, 'Top ' + str(i + 1) + ':',
+                    ((i + 1) * gap + i * picSize + 5, picSize + 3 * gap + 2 * textSize), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                    (255, 255, 255), 2)
+
+    algos = ['Local Histograms', 'BoW', 'HOG']
+    cv2.putText(img_window, '[' + algos[ALGO - 1] + ']', (30, 40), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1,
+                (255, 255, 255), 1)
+
+    cv2.imshow('Image Retrieval', img_window)
     cv2.waitKey(0)
 
 
 if __name__ == '__main__':
-    ''' Local Histograms '''
-    # calc_dataset_fts()
-    # segm_hist_search('dataset/n02091244/n0209124400000005.jpg')
+    global ALGO
+    ALGO = 3
 
-    ''' BoW '''
-    fill_vocabulary()
-    bow_search('dataset/n01855672/n0185567200000004.jpg')
+    # Local Histograms
+    if ALGO == 1:
+        calc_dataset_fts()
+    # BoW
+    elif ALGO == 2:
+        fill_vocabulary()
+    # HOG
+    else:
+        calc_hog_fts()
+
+    for filename in filenames:
+        # segm_hist_search(filename)
+        # bow_search(filename)
+        hog_search(filename)
