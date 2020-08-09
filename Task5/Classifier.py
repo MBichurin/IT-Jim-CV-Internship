@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import sklearn as sk
 from sklearn import preprocessing
+from sklearn import tree
 
 
 def divide_dataset(train_portion, val_portion):
@@ -184,19 +185,24 @@ def validation():
             param = cur_param
 
 
-def calc_precision(fts, set, K):
+def calc_precision(fts, the_set, cur_param = None):
     positives = 0
-    for feature, file in zip(fts, set):
-        predict_class = knn(feature, K)
-        img = cv2.imread(file)
+    for feature, file in zip(fts, the_set):
+        predict_class = knn(feature, cur_param)
         if predict_class == dataset[file]:
             positives += 1
     return positives / fts.shape[0]
 
 
 if __name__ == '__main__':
+    global ALGO
+    ALGO = 2
+
     # Divide dataset into train-, validation- and testset
-    divide_dataset(0.7, 0.15)
+    if ALGO == 1:
+        divide_dataset(0.7, 0.15)
+    if ALGO == 2:
+        divide_dataset(0.85, 0)
 
     # Get features of images in sets
     global train_fts, val_fts, test_fts
@@ -208,20 +214,40 @@ if __name__ == '__main__':
     # Normalize the features
 
     # train_fts, std_scale_hog, std_scale_loc_hist = normalize(train_fts)
-    # val_fts, std_scale_hog, std_scale_loc_hist = normalize(val_fts, std_scale_hog, std_scale_loc_hist)
+    # if val_fts.shape[0] != 0:
+    #     val_fts, std_scale_hog, std_scale_loc_hist = normalize(val_fts, std_scale_hog, std_scale_loc_hist)
     # test_fts, std_scale_hog, std_scale_loc_hist = normalize(test_fts, std_scale_hog, std_scale_loc_hist)
 
-    # std_scale = preprocessing.StandardScaler().fit(train_fts)
-    # train_fts = std_scale.transform(train_fts)
-    # val_fts = std_scale.transform(val_fts)
-    # test_fts = std_scale.transform(test_fts)
+    if ALGO == 2:
+        std_scale = preprocessing.StandardScaler().fit(train_fts)
+        train_fts = std_scale.transform(train_fts)
+        # val_fts = std_scale.transform(val_fts)
+        test_fts = std_scale.transform(test_fts)
 
-    # print('Features are normalized')
+        print('Features are normalized')
 
-    # Validation
-    validation()
-    print('Validation is done, the best param is ' + str(param))
+    if ALGO == 1:
+        # Validation
+        validation()
+        print('Validation is done, the best param is ' + str(param))
 
-    # Testing
-    prec = calc_precision(test_fts, testset, param)
-    print('The solution\'s precision: ' + percent(prec))
+        # Testing
+        prec = calc_precision(test_fts, testset, param)
+        print('The solution\'s precision: ' + percent(prec))
+    if ALGO == 2:
+        # Define classifier
+        clf = tree.DecisionTreeClassifier()
+        # Get classes of the trainset
+        train_classes = np.zeros_like(trainset)
+        for i, file in enumerate(trainset):
+            train_classes[i] = dataset[file]
+        # Fit the model
+        clf.fit(train_fts, train_classes)
+        test_predictions = clf.predict(test_fts)
+
+        # Get classes of the testset
+        positives = 0
+        for prediction, file in zip(test_predictions, testset):
+            if prediction == dataset[file]:
+                positives += 1
+        print('The solution\'s precision: ' + percent(positives / test_fts.shape[0]))
