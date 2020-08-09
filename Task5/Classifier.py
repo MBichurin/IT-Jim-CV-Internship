@@ -43,11 +43,15 @@ def percent(float_num):
 def calc_fts(set):
     # Features set
     fts_set = []
+    # Number of features from hog
+    global fts1_n
     # Iterate through filenames
     for filename in set:
         # Get HOG features of an image
         img = cv2.imread(filename)
         fts_hog = get_hog_fts(img)
+        # Remember the number of HOG fts
+        fts1_n = len(fts_hog)
         # Get Local Histograms features of an image
         img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         fts_loc_hist = get_segmhist_fts(img)
@@ -55,6 +59,24 @@ def calc_fts(set):
         fts = np.concatenate((fts_hog, fts_loc_hist), axis=0)
         fts_set.extend([fts])
     return np.array(fts_set)
+
+
+def normalize(fts_set, std_scale_hog=None, std_scale_loc_hist=None):
+    # Reshape HOG and LocHist features into vectors
+    hog_fts = fts_set[:, :fts1_n].reshape(-1, 1)
+    loc_hist_fts = fts_set[:, fts1_n:].reshape(-1, 1)
+    # If it's a trainset
+    if std_scale_hog is None:
+        std_scale_hog = preprocessing.StandardScaler().fit(hog_fts)
+        std_scale_loc_hist = preprocessing.StandardScaler().fit(loc_hist_fts)
+    # Standardize features
+    hog_fts = std_scale_hog.transform(hog_fts)
+    loc_hist_fts = std_scale_loc_hist.transform(loc_hist_fts)
+    # Reshape features the way they were
+    fts_set[:, :fts1_n] = hog_fts.reshape((fts_set.shape[0], fts1_n))
+    fts_set[:, fts1_n:] = loc_hist_fts.reshape((fts_set.shape[0], fts_set.shape[1] - fts1_n))
+    return fts_set, std_scale_hog, std_scale_loc_hist
+
 
 
 def get_hog_fts(img):
@@ -181,13 +203,20 @@ if __name__ == '__main__':
     train_fts = calc_fts(trainset)
     val_fts = calc_fts(valset)
     test_fts = calc_fts(testset)
+    print('Features are calculated')
 
     # Normalize the features
-    std_scale = preprocessing.StandardScaler().fit(train_fts)
-    train_fts = std_scale.transform(train_fts)
-    val_fts = std_scale.transform(val_fts)
-    test_fts = std_scale.transform(test_fts)
-    print('Features are calculated and normalized')
+
+    # train_fts, std_scale_hog, std_scale_loc_hist = normalize(train_fts)
+    # val_fts, std_scale_hog, std_scale_loc_hist = normalize(val_fts, std_scale_hog, std_scale_loc_hist)
+    # test_fts, std_scale_hog, std_scale_loc_hist = normalize(test_fts, std_scale_hog, std_scale_loc_hist)
+
+    # std_scale = preprocessing.StandardScaler().fit(train_fts)
+    # train_fts = std_scale.transform(train_fts)
+    # val_fts = std_scale.transform(val_fts)
+    # test_fts = std_scale.transform(test_fts)
+
+    # print('Features are normalized')
 
     # Validation
     validation()
