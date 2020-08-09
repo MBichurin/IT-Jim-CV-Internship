@@ -5,7 +5,7 @@ import sklearn as sk
 from sklearn import preprocessing
 
 
-def divide_dataset(train_size, val_size):
+def divide_dataset(train_portion, val_portion):
     # Names of dataset's files; their amount
     filenames = []
     files_n = 0
@@ -23,14 +23,21 @@ def divide_dataset(train_size, val_size):
             filenames.extend([filename])
             dataset[filename] = subdir
     # Number of files in trainset and valset
-    train_size = int(files_n * train_size)
-    val_size = int(files_n * val_size)
+    train_size = int(files_n * train_portion)
+    val_size = int(files_n * val_portion)
 
     # Randomly divide the dataset into 3 parts according to the given proportions
     filenames = sk.utils.shuffle(filenames, random_state=0)
     trainset = filenames[:train_size]
     valset = filenames[train_size:train_size + val_size]
     testset = filenames[train_size + val_size:]
+
+    print('The dataset is divided: train - ' + percent(train_portion) + ', validation - ' + percent(val_portion) +
+          ', test - ' + percent(1 - train_portion - val_portion))
+
+
+def percent(float_num):
+    return ("%.2f" % (float_num * 100)) + '%'
 
 
 def calc_fts(set):
@@ -97,9 +104,7 @@ def knn(test_feature, k):
     # Iterate through the trainset
     for i, (train_feature, file) in enumerate(zip(train_fts, trainset)):
         Dists[i] = (distance(test_feature, train_feature), file)
-    print('The test image is compared with the trainset!')
     Dists = sorted(Dists)
-    print('Sorted!')
 
     # Find the most popular class among K nearest neighbors
     test_class = None
@@ -146,6 +151,27 @@ HFCNames = {
 }
 
 
+def validation():
+    global param
+    max_prec = 0
+    for cur_param in [1, 2, 3, 5, 7, 10, 15, 20, 30, 40]:
+        prec = calc_precision(val_fts, valset, cur_param)
+        print('For param=' + str(cur_param) + ' precision=' + percent(prec))
+        if prec > max_prec:
+            max_prec = prec
+            param = cur_param
+
+
+def calc_precision(fts, set, K):
+    positives = 0
+    for feature, file in zip(fts, set):
+        predict_class = knn(feature, K)
+        img = cv2.imread(file)
+        if predict_class == dataset[file]:
+            positives += 1
+    return positives / fts.shape[0]
+
+
 if __name__ == '__main__':
     # Divide dataset into train-, validation- and testset
     divide_dataset(0.7, 0.15)
@@ -156,15 +182,17 @@ if __name__ == '__main__':
     val_fts = calc_fts(valset)
     test_fts = calc_fts(testset)
 
-    for test_feature, file in zip(test_fts, testset):
-        test_class = knn(test_feature, 5)
-        img = cv2.imread(file)
-        print(HFCNames[test_class])
-        cv2.imshow('Win', img)
-        cv2.waitKey(0)
-
     # Normalize the features
     std_scale = preprocessing.StandardScaler().fit(train_fts)
     train_fts = std_scale.transform(train_fts)
     val_fts = std_scale.transform(val_fts)
     test_fts = std_scale.transform(test_fts)
+    print('Features are calculated and normalized')
+
+    # Validation
+    validation()
+    print('Validation is done, the best param is ' + str(param))
+
+    # Testing
+    prec = calc_precision(test_fts, testset, param)
+    print('The solution\'s precision: ' + percent(prec))
