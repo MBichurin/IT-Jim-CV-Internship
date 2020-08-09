@@ -86,14 +86,82 @@ def get_segmhist_fts(img):
     return features
 
 
+def distance(A, B):
+    chi_sq = np.sum(np.divide(np.power(np.subtract(A, B), 2), np.add(np.add(A, B), 1e-10))) / 2
+    return chi_sq
+
+
+def knn(test_feature, k):
+    # (distance, filename)
+    Dists = [(0, 0)] * train_fts.shape[0]
+    # Iterate through the trainset
+    for i, (train_feature, file) in enumerate(zip(train_fts, trainset)):
+        Dists[i] = (distance(test_feature, train_feature), file)
+    print('The test image is compared with the trainset!')
+    Dists = sorted(Dists)
+    print('Sorted!')
+
+    # Find the most popular class among K nearest neighbors
+    test_class = None
+    max_n = 0
+    Classes = {}
+    i = 0
+    for (dist, file) in Dists:
+        # Add 1 to the file's class
+        train_class = dataset[file]
+        if train_class in Classes:
+            Classes[train_class] += 1
+        else:
+            Classes[train_class] = 1
+
+        # Update the test's class
+        if Classes[train_class] > max_n:
+            max_n = Classes[train_class]
+            test_class = train_class
+
+        i += 1
+        if i == k:
+            break
+    return test_class
+
+
+# Human friendly class names
+HFCNames = {
+    "dataset\\n01855672": "Bird",
+    "dataset\\n02091244": "Dog",
+    "dataset\\n02114548": "Wolf",
+    "dataset\\n02138441": "Meerkat",
+    "dataset\\n02174001": "Bug",
+    "dataset\\n02950826": "Cannon",
+    "dataset\\n02971356": "Box",
+    "dataset\\n02981792": "Ship",
+    "dataset\\n03075370": "Lock",
+    "dataset\\n03417042": "Garbage truck",
+    "dataset\\n03535780": "Acrobat",
+    "dataset\\n03584254": "mp3 player",
+    "dataset\\n03770439": "Woman",
+    "dataset\\n03773504": "Rocket",
+    "dataset\\n03980874": "Strange scarf",
+    "dataset\\n09256479": "Coral"
+}
+
+
 if __name__ == '__main__':
     # Divide dataset into train-, validation- and testset
     divide_dataset(0.7, 0.15)
 
     # Get features of images in sets
+    global train_fts, val_fts, test_fts
     train_fts = calc_fts(trainset)
     val_fts = calc_fts(valset)
     test_fts = calc_fts(testset)
+
+    for test_feature, file in zip(test_fts, testset):
+        test_class = knn(test_feature, 5)
+        img = cv2.imread(file)
+        print(HFCNames[test_class])
+        cv2.imshow('Win', img)
+        cv2.waitKey(0)
 
     # Normalize the features
     std_scale = preprocessing.StandardScaler().fit(train_fts)
