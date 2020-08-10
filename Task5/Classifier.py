@@ -2,7 +2,7 @@ import os
 import cv2
 import numpy as np
 import sklearn as sk
-from sklearn import preprocessing, decomposition, ensemble
+from sklearn import preprocessing, decomposition, ensemble, svm
 
 
 n_classes = 16
@@ -218,12 +218,15 @@ def dim_reduction():
     val_fts = pca.transform(val_fts)
     # Transform test features
     test_fts = pca.transform(test_fts)
-    print('Dimensionality\'s reducted (N of fts: %s -> %s)' % (fts_prev_cnt, train_fts.shape[1]))
+    print('  Dimensionality\'s reducted (N of fts: %s -> %s)' % (fts_prev_cnt, train_fts.shape[1]))
 
 
-def random_forest(rand, fts, set):
+def rf_svm_classifiers(rand, fts, set, cl_type):
     # Define classifier
-    clf = ensemble.RandomForestClassifier(random_state=rand)
+    if cl_type == 'rf':
+        clf = ensemble.RandomForestClassifier(random_state=rand)
+    if cl_type == 'svm':
+        clf = svm.SVC(probability=True, random_state=rand)
     # clf = tree.DecisionTreeClassifier(splitter='best', random_state=rand)
 
     # Fit the model and predict
@@ -239,45 +242,9 @@ def random_forest(rand, fts, set):
     return positives, probs, clf.classes_
 
 
-if __name__ == '__main__':
-    # Turn off validation for better testing
-    # (default parameters may perform worse for other datasets)
-    validate = [False, False]
-    # Normalize method, if -1 ==> features won't be normalized
-    normalize_method = -1
-    # Dimension reduction?
-    dim_red = False
-
-    # Divide dataset into train-, validation- and testset
-    divide_dataset(0.8, 0.1)
-
-    # Get features of images in sets
-    global train_fts, val_fts, test_fts
-    train_fts = calc_fts(trainset)
-    val_fts = calc_fts(valset)
-    test_fts = calc_fts(testset)
-    print('Features are calculated')
-
-    # Normalize the features
-    if normalize_method == 1:
-        train_fts, std_scale_hog, std_scale_loc_hist = normalize(train_fts)
-        val_fts, std_scale_hog, std_scale_loc_hist = normalize(val_fts, std_scale_hog, std_scale_loc_hist)
-        test_fts, std_scale_hog, std_scale_loc_hist = normalize(test_fts, std_scale_hog, std_scale_loc_hist)
-    elif normalize_method == 2:
-        std_scale = preprocessing.StandardScaler().fit(train_fts)
-        train_fts = std_scale.transform(train_fts)
-        val_fts = std_scale.transform(val_fts)
-        test_fts = std_scale.transform(test_fts)
-    if normalize_method != -1:
-        print('Features are normalized')
-
-    if dim_red:
-        # Dimensionality reduction
-        dim_reduction()
-
-
-    ''' KNN '''
+def do_knn():
     print('\nKNN:')
+    global param
 
     if validate[0]:
         # Validation
@@ -289,24 +256,22 @@ if __name__ == '__main__':
     # Testing
     positives, probs_knn = fit_knn(test_fts, testset, param)
     prec = precision(positives, test_fts.shape[0])
-    print('KNN precision: ' + percent(prec))
+    print('  precision: ' + percent(prec))
+    return probs_knn
 
 
-    ''' Random Forest '''
-    print('\nRandom Forest:')
+def do_rf_or_svm(cl_type):
+    if cl_type == 'rf':
+        algo_idx = 1
+    if cl_type == 'svm':
+        algo_idx = 2
 
-    # Get classes of the trainset
-    global train_classes
-    train_classes = np.zeros_like(trainset)
-    for i, file in enumerate(trainset):
-        train_classes[i] = dataset[file]
-
-    if validate[1]:
+    if validate[algo_idx]:
         # Find the best random_state
         param = None
         max_prec = 0
         for rand in range(10):
-            positives, _, _ = random_forest(rand, val_fts, valset)
+            positives, _, _ = rf_svm_classifiers(rand, val_fts, valset, cl_type)
             prec = precision(positives, val_fts.shape[0])
             print('For random_state=' + str(rand) + ' precision=' + percent(prec))
             if prec > max_prec:
@@ -319,9 +284,87 @@ if __name__ == '__main__':
         param = 0
 
     # Fit the model and predict
-    positives, probs_rf, classes_rf = random_forest(param, test_fts, testset)
+    positives, probs_algo, classes_algo = rf_svm_classifiers(param, test_fts, testset, cl_type)
     prec = precision(positives, test_fts.shape[0])
-    print('RandomForest precision: ' + percent(prec))
+    print('  precision: ' + percent(prec))
+    return probs_algo, classes_algo
+
+
+def normalize_and_dim_reduct(algo_idx):
+    global train_fts, val_fts, test_fts
+
+    # Normalize the features
+    if normalize_method[algo_idx] == 1:
+        train_fts, std_scale_hog, std_scale_loc_hist = normalize(train_fts)
+        val_fts, std_scale_hog, std_scale_loc_hist = normalize(val_fts, std_scale_hog, std_scale_loc_hist)
+        test_fts, std_scale_hog, std_scale_loc_hist = normalize(test_fts, std_scale_hog, std_scale_loc_hist)
+    elif normalize_method[algo_idx] == 2:
+        std_scale = preprocessing.StandardScaler().fit(train_fts)
+        train_fts = std_scale.transform(train_fts)
+        val_fts = std_scale.transform(val_fts)
+        test_fts = std_scale.transform(test_fts)
+    if normalize_method[algo_idx] != -1:
+        print('  Features are normalized')
+
+    if dim_red[algo_idx]:
+        # Dimensionality reduction
+        dim_reduction()
+
+
+if __name__ == '__main__':
+    # Turn off validation for better testing
+    # (default parameters may perform worse for other datasets)
+    global validate
+    validate = [False, False, False]
+    # Normalize method, if -1 ==> features won't be normalized
+    global normalize_method
+    normalize_method = [-1, -1, 1]
+    # Dimension reduction?
+    global dim_red
+    dim_red = [False, False, True]
+
+    # Divide dataset into train-, validation- and testset
+    divide_dataset(0.8, 0.1)
+
+    # Get features of images in sets
+    global train_fts, val_fts, test_fts
+    train_fts = calc_fts(trainset)
+    val_fts = calc_fts(valset)
+    test_fts = calc_fts(testset)
+    print('Features are calculated')
+
+
+    ''' KNN '''
+
+    # Normalization and dimension reduction
+    normalize_and_dim_reduct(0)
+
+    probs_knn = do_knn()
+
+
+    ''' Random Forest '''
+
+    print('\nRandom Forest:')
+
+    # Normalization and dimension reduction
+    normalize_and_dim_reduct(1)
+
+    # Get classes of the trainset
+    global train_classes
+    train_classes = np.zeros_like(trainset)
+    for i, file in enumerate(trainset):
+        train_classes[i] = dataset[file]
+    probs_rf, classes_rf = do_rf_or_svm('rf')
+
+
+    ''' Radial SVM '''
+
+    print('\nRadial SVM:')
+
+    # Normalization and dimension reduction
+    normalize_and_dim_reduct(2)
+
+    probs_svm, classes_svm = do_rf_or_svm('svm')
 
 
     ''' Ensemble voting '''
