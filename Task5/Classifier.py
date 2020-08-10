@@ -370,24 +370,27 @@ if __name__ == '__main__':
     ''' Ensemble voting '''
 
     max_prec = 0
-    param = None
-    for cur_param in np.arange(0.05, 2, 0.05):
-        # Unite probabilities
-        probs = probs_knn * cur_param
-        for i in range(n_classes):
-            probs[:, int(classes_rf[i])] += probs_rf[:, i]
+    param = [None, None]
+    for param_knn in np.arange(0.05, 2, 0.05):
+        for param_rf in np.arange(0.05, 2, 0.05):
+            # Unite probabilities
+            probs = probs_knn * param_knn
+            for i in range(n_classes):
+                probs[:, int(classes_rf[i])] += probs_rf[:, i] * param_rf
+                probs[:, int(classes_svm[i])] += probs_svm[:, i]
 
-        predictions = np.argmax(probs, axis=1)
+            predictions = np.argmax(probs, axis=1)
 
-        # Count positive predictions
-        positives = 0
-        for prediction, file in zip(predictions, testset):
-            if prediction == dataset[file]:
-                positives += 1
-        prec = precision(positives, test_fts.shape[0])
-        # Update param
-        if prec > max_prec:
-            max_prec = prec
-            param = cur_param
-    print('\nEnsemble voting:\nbest cur_param ' + "%.2f" % (param))
-    print('The solution\'s precision: ' + percent(max_prec))
+            # Count positive predictions
+            positives = 0
+            for prediction, file in zip(predictions, testset):
+                if prediction == dataset[file]:
+                    positives += 1
+            prec = precision(positives, test_fts.shape[0])
+            # Update param
+            if prec > max_prec:
+                max_prec = prec
+                param[0] = param_knn
+                param[1] = param_rf
+    print('\nEnsemble voting:\n  best param=' + "[%.2f, %.2f]" % (param[0], param[1]))
+    print('  The solution\'s precision: ' + percent(max_prec))
