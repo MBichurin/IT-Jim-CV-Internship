@@ -371,13 +371,14 @@ if __name__ == '__main__':
 
     max_prec = 0
     param = [None, None]
-    for param_knn in np.arange(0.05, 2, 0.05):
-        for param_rf in np.arange(0.05, 2, 0.05):
+    for param_knn in np.arange(0, 1.01, 0.05):
+        for param_rf in np.arange(0, 1.01 - param_knn, 0.05):
+            param_svm = 1 - param_knn - param_rf
             # Unite probabilities
             probs = probs_knn * param_knn
             for i in range(n_classes):
                 probs[:, int(classes_rf[i])] += probs_rf[:, i] * param_rf
-                probs[:, int(classes_svm[i])] += probs_svm[:, i]
+                probs[:, int(classes_svm[i])] += probs_svm[:, i] * param_svm
 
             predictions = np.argmax(probs, axis=1)
 
