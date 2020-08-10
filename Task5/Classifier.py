@@ -311,6 +311,13 @@ def normalize_and_dim_reduct(algo_idx):
         dim_reduction()
 
 
+def visualise(predictions):
+    for prediction, file in zip(predictions, testset):
+        print(HFCNames[dataset[file]] + ' -> ' + HFCNames[prediction])
+        cv2.imshow('Classifier', cv2.imread(file))
+        cv2.waitKey(0)
+
+
 if __name__ == '__main__':
     # Turn off validation for better testing
     # (default parameters may perform worse for other datasets)
@@ -341,7 +348,6 @@ if __name__ == '__main__':
 
     probs_knn = do_knn()
 
-
     ''' Random Forest '''
 
     print('\nRandom Forest:')
@@ -371,6 +377,7 @@ if __name__ == '__main__':
 
     max_prec = 0
     param = [None, None]
+    final_predicts = None
     for param_knn in np.arange(0, 1.01, 0.05):
         for param_rf in np.arange(0, 1.01 - param_knn, 0.05):
             param_svm = 1 - param_knn - param_rf
@@ -393,5 +400,9 @@ if __name__ == '__main__':
                 max_prec = prec
                 param[0] = param_knn
                 param[1] = param_rf
+                final_predicts = predictions
     print('\nEnsemble voting:\n  best param=' + "[%.2f, %.2f]" % (param[0], param[1]))
     print('  The solution\'s precision: ' + percent(max_prec))
+
+    # Show testing images and their predicted classes
+    visualise(final_predicts)
