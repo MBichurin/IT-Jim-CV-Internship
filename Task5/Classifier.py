@@ -2,8 +2,7 @@ import os
 import cv2
 import numpy as np
 import sklearn as sk
-from sklearn import preprocessing
-from sklearn import tree
+from sklearn import preprocessing, tree, decomposition, ensemble
 
 
 def divide_dataset(train_portion, val_portion):
@@ -194,15 +193,28 @@ def calc_precision(fts, the_set, cur_param = None):
     return positives / fts.shape[0]
 
 
+def dim_reduction():
+    global train_fts, val_fts, test_fts
+    # Remember previous number of fts
+    fts_prev_cnt = train_fts.shape[1]
+    # PCA
+    pca = decomposition.PCA(random_state=0)
+    # Fit PCA and transform train features
+    train_fts = pca.fit_transform(train_fts)
+    # Transform validation features
+    if val_fts.shape[0] != 0:
+        val_fts = pca.transform(val_fts)
+    # Transform test features
+    test_fts = pca.transform(test_fts)
+    print('Dimensionality\'s reducted (N of fts: %s -> %s)' % (fts_prev_cnt, train_fts.shape[1]))
+
+
 if __name__ == '__main__':
     global ALGO
-    ALGO = 2
+    ALGO = 3
 
     # Divide dataset into train-, validation- and testset
-    if ALGO == 1:
-        divide_dataset(0.7, 0.15)
-    if ALGO == 2:
-        divide_dataset(0.85, 0)
+    divide_dataset(0.8, 0.1)
 
     # Get features of images in sets
     global train_fts, val_fts, test_fts
@@ -211,21 +223,25 @@ if __name__ == '__main__':
     test_fts = calc_fts(testset)
     print('Features are calculated')
 
-    # Normalize the features
-
+    # # Normalize the features
     # train_fts, std_scale_hog, std_scale_loc_hist = normalize(train_fts)
     # if val_fts.shape[0] != 0:
     #     val_fts, std_scale_hog, std_scale_loc_hist = normalize(val_fts, std_scale_hog, std_scale_loc_hist)
     # test_fts, std_scale_hog, std_scale_loc_hist = normalize(test_fts, std_scale_hog, std_scale_loc_hist)
 
-    if ALGO == 2:
-        std_scale = preprocessing.StandardScaler().fit(train_fts)
-        train_fts = std_scale.transform(train_fts)
-        # val_fts = std_scale.transform(val_fts)
-        test_fts = std_scale.transform(test_fts)
+    # if ALGO == 2:
+    #     # Normalize the features
+    #     std_scale = preprocessing.StandardScaler().fit(train_fts)
+    #     train_fts = std_scale.transform(train_fts)
+    #     if val_fts.shape[0] != 0:
+    #         val_fts = std_scale.transform(val_fts)
+    #     test_fts = std_scale.transform(test_fts)
+    #     print('Features are normalized')
+    #
+    #     # Dimensionality reduction
+    #     dim_reduction()
 
-        print('Features are normalized')
-
+    ''' Prediction '''
     if ALGO == 1:
         # Validation
         validation()
@@ -234,20 +250,54 @@ if __name__ == '__main__':
         # Testing
         prec = calc_precision(test_fts, testset, param)
         print('The solution\'s precision: ' + percent(prec))
-    if ALGO == 2:
-        # Define classifier
-        clf = tree.DecisionTreeClassifier()
-        # Get classes of the trainset
-        train_classes = np.zeros_like(trainset)
-        for i, file in enumerate(trainset):
-            train_classes[i] = dataset[file]
-        # Fit the model
-        clf.fit(train_fts, train_classes)
-        test_predictions = clf.predict(test_fts)
+        pass
 
-        # Get classes of the testset
+
+    # Get classes of the trainset
+    train_classes = np.zeros_like(trainset)
+    for i, file in enumerate(trainset):
+        train_classes[i] = dataset[file]
+
+    # Find the best random_state
+    max_prec = 0
+    for rand in range(10):
+        # Define classifier
+        if ALGO == 2:
+            clf = tree.DecisionTreeClassifier(splitter='best', random_state=rand)
+        if ALGO == 3:
+            clf = ensemble.RandomForestClassifier(random_state=rand)
+
+        # Fit the model and predict
+        clf.fit(train_fts, train_classes)
+        val_predictions = clf.predict(val_fts)
+
+        # Get classes of the valset
         positives = 0
-        for prediction, file in zip(test_predictions, testset):
+        for prediction, file in zip(val_predictions, valset):
             if prediction == dataset[file]:
                 positives += 1
-        print('The solution\'s precision: ' + percent(positives / test_fts.shape[0]))
+        prec = positives / val_fts.shape[0]
+        print('For random_state=' + str(rand) + ' precision=' + percent(prec))
+        if prec > max_prec:
+            max_prec = prec
+            param = rand
+
+    # Now we've chosen the best random_state
+    print('The best random_state value is ' + str(param))
+    # Define classifier
+    if ALGO == 2:
+        clf = tree.DecisionTreeClassifier(splitter='best', random_state=param)
+    if ALGO == 3:
+        clf = ensemble.RandomForestClassifier(random_state=param)
+
+    # Fit the model and predict
+    clf.fit(train_fts, train_classes)
+    test_predictions = clf.predict(test_fts)
+
+    # Get classes of the testset
+    positives = 0
+    for prediction, file in zip(test_predictions, testset):
+        if prediction == dataset[file]:
+            positives += 1
+    prec = positives / test_fts.shape[0]
+    print('The solution\'s precision: ' + percent(prec))
