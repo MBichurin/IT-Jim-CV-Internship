@@ -182,7 +182,7 @@ ClassIdx = {
 def validation_knn():
     global param
     max_prec = 0
-    for cur_param in [5]:
+    for cur_param in [1, 2, 3, 5, 7, 10, 15, 20, 30, 40]:
         positives, probabilities = fit_knn(val_fts, valset, cur_param)
         prec = positives / val_fts.shape[0]
         print('For K=' + str(cur_param) + ' precision=' + percent(prec))
@@ -241,6 +241,10 @@ def random_forest(rand, fts, set):
 
 
 if __name__ == '__main__':
+    # Turn off validation for better testing
+    # (default parameters may perform worse for other datasets)
+    validate = [False, False]
+
     # Divide dataset into train-, validation- and testset
     divide_dataset(0.8, 0.1)
 
@@ -271,11 +275,14 @@ if __name__ == '__main__':
 
 
     ''' KNN '''
-    print('\nKNN:\n')
+    print('\nKNN:')
 
-    # Validation
-    validation_knn()
-    print('Validation is done, the best K value is ' + str(param))
+    if validate[0]:
+        # Validation
+        validation_knn()
+        print('Validation is done, the best K value is ' + str(param))
+    else:
+        param = 5
 
     # Testing
     positives, probs_knn = fit_knn(test_fts, testset, param)
@@ -284,7 +291,7 @@ if __name__ == '__main__':
 
 
     ''' Random Forest '''
-    print('\nRandom Forest:\n')
+    print('\nRandom Forest:')
 
     # Get classes of the trainset
     global train_classes
@@ -292,18 +299,22 @@ if __name__ == '__main__':
     for i, file in enumerate(trainset):
         train_classes[i] = dataset[file]
 
-    # Find the best random_state
-    max_prec = 0
-    for rand in range(3):
-        positives, _, _ = random_forest(rand, val_fts, valset)
-        prec = precision(positives, val_fts.shape[0])
-        print('For random_state=' + str(rand) + ' precision=' + percent(prec))
-        if prec > max_prec:
-            max_prec = prec
-            param = rand
+    if validate[1]:
+        # Find the best random_state
+        param = None
+        max_prec = 0
+        for rand in range(10):
+            positives, _, _ = random_forest(rand, val_fts, valset)
+            prec = precision(positives, val_fts.shape[0])
+            print('For random_state=' + str(rand) + ' precision=' + percent(prec))
+            if prec > max_prec:
+                max_prec = prec
+                param = rand
 
-    # Now we've chosen the best random_state
-    print('Validation is done, the best random_state value is ' + str(param))
+        # Now we've chosen the best random_state
+        print('Validation is done, the best random_state value is ' + str(param))
+    else:
+        param = 0
 
     # Fit the model and predict
     positives, probs_rf, classes_rf = random_forest(param, test_fts, testset)
@@ -313,17 +324,25 @@ if __name__ == '__main__':
 
     ''' Ensemble voting '''
 
-    # Unite probabilities
-    probs = probs_knn
-    for i in range(n_classes):
-        probs[:, int(classes_rf[i])] += probs_rf[:, i]
+    max_prec = 0
+    param = None
+    for cur_param in np.arange(0.05, 2, 0.05):
+        # Unite probabilities
+        probs = probs_knn * cur_param
+        for i in range(n_classes):
+            probs[:, int(classes_rf[i])] += probs_rf[:, i]
 
-    predictions = np.argmax(probs, axis=1)
+        predictions = np.argmax(probs, axis=1)
 
-    # Count positive predictions
-    positives = 0
-    for prediction, file in zip(predictions, testset):
-        if prediction == dataset[file]:
-            positives += 1
-    prec = precision(positives, test_fts.shape[0])
-    print('\nThe solution\'s precision: ' + percent(prec))
+        # Count positive predictions
+        positives = 0
+        for prediction, file in zip(predictions, testset):
+            if prediction == dataset[file]:
+                positives += 1
+        prec = precision(positives, test_fts.shape[0])
+        # Update param
+        if prec > max_prec:
+            max_prec = prec
+            param = cur_param
+    print('best cur_param ' + "%.2f" % (param))
+    print('\nThe solution\'s precision: ' + percent(max_prec))
