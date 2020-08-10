@@ -215,8 +215,7 @@ def dim_reduction():
     # Fit PCA and transform train features
     train_fts = pca.fit_transform(train_fts)
     # Transform validation features
-    if val_fts.shape[0] != 0:
-        val_fts = pca.transform(val_fts)
+    val_fts = pca.transform(val_fts)
     # Transform test features
     test_fts = pca.transform(test_fts)
     print('Dimensionality\'s reducted (N of fts: %s -> %s)' % (fts_prev_cnt, train_fts.shape[1]))
@@ -244,6 +243,10 @@ if __name__ == '__main__':
     # Turn off validation for better testing
     # (default parameters may perform worse for other datasets)
     validate = [False, False]
+    # Normalize method, if -1 ==> features won't be normalized
+    normalize_method = -1
+    # Dimension reduction?
+    dim_red = False
 
     # Divide dataset into train-, validation- and testset
     divide_dataset(0.8, 0.1)
@@ -255,23 +258,22 @@ if __name__ == '__main__':
     test_fts = calc_fts(testset)
     print('Features are calculated')
 
-    # # Normalize the features
-    # train_fts, std_scale_hog, std_scale_loc_hist = normalize(train_fts)
-    # if val_fts.shape[0] != 0:
-    #     val_fts, std_scale_hog, std_scale_loc_hist = normalize(val_fts, std_scale_hog, std_scale_loc_hist)
-    # test_fts, std_scale_hog, std_scale_loc_hist = normalize(test_fts, std_scale_hog, std_scale_loc_hist)
+    # Normalize the features
+    if normalize_method == 1:
+        train_fts, std_scale_hog, std_scale_loc_hist = normalize(train_fts)
+        val_fts, std_scale_hog, std_scale_loc_hist = normalize(val_fts, std_scale_hog, std_scale_loc_hist)
+        test_fts, std_scale_hog, std_scale_loc_hist = normalize(test_fts, std_scale_hog, std_scale_loc_hist)
+    elif normalize_method == 2:
+        std_scale = preprocessing.StandardScaler().fit(train_fts)
+        train_fts = std_scale.transform(train_fts)
+        val_fts = std_scale.transform(val_fts)
+        test_fts = std_scale.transform(test_fts)
+    if normalize_method != -1:
+        print('Features are normalized')
 
-    # if ALGO == 2:
-    #     # Normalize the features
-    #     std_scale = preprocessing.StandardScaler().fit(train_fts)
-    #     train_fts = std_scale.transform(train_fts)
-    #     if val_fts.shape[0] != 0:
-    #         val_fts = std_scale.transform(val_fts)
-    #     test_fts = std_scale.transform(test_fts)
-    #     print('Features are normalized')
-    #
-    #     # Dimensionality reduction
-    #     dim_reduction()
+    if dim_red:
+        # Dimensionality reduction
+        dim_reduction()
 
 
     ''' KNN '''
@@ -344,5 +346,5 @@ if __name__ == '__main__':
         if prec > max_prec:
             max_prec = prec
             param = cur_param
-    print('best cur_param ' + "%.2f" % (param))
-    print('\nThe solution\'s precision: ' + percent(max_prec))
+    print('\nEnsemble voting:\nbest cur_param ' + "%.2f" % (param))
+    print('The solution\'s precision: ' + percent(max_prec))
