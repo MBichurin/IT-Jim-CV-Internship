@@ -179,13 +179,13 @@ ClassIdx = {
 }
 
 
-def validation():
+def validation_knn():
     global param
     max_prec = 0
     for cur_param in [5]:
         positives, probabilities = fit_knn(val_fts, valset, cur_param)
         prec = positives / val_fts.shape[0]
-        print('For param=' + str(cur_param) + ' precision=' + percent(prec))
+        print('For K=' + str(cur_param) + ' precision=' + percent(prec))
         if prec > max_prec:
             max_prec = prec
             param = cur_param
@@ -232,12 +232,12 @@ def random_forest(rand, fts, set):
     predictions = clf.predict(fts)
     probs = clf.predict_proba(fts)
 
-    # Get classes of the set
+    # Count positive predictions
     positives = 0
     for prediction, file in zip(predictions, set):
         if int(prediction) == dataset[file]:
             positives += 1
-    return positives, probs
+    return positives, probs, clf.classes_
 
 
 if __name__ == '__main__':
@@ -274,8 +274,8 @@ if __name__ == '__main__':
     print('\nKNN:\n')
 
     # Validation
-    validation()
-    print('Validation is done, the best param is ' + str(param))
+    validation_knn()
+    print('Validation is done, the best K value is ' + str(param))
 
     # Testing
     positives, probs_knn = fit_knn(test_fts, testset, param)
@@ -295,7 +295,7 @@ if __name__ == '__main__':
     # Find the best random_state
     max_prec = 0
     for rand in range(3):
-        positives, _ = random_forest(rand, val_fts, valset)
+        positives, _, _ = random_forest(rand, val_fts, valset)
         prec = precision(positives, val_fts.shape[0])
         print('For random_state=' + str(rand) + ' precision=' + percent(prec))
         if prec > max_prec:
@@ -303,15 +303,27 @@ if __name__ == '__main__':
             param = rand
 
     # Now we've chosen the best random_state
-    print('The best random_state value is ' + str(param))
+    print('Validation is done, the best random_state value is ' + str(param))
 
     # Fit the model and predict
-    positives, probs_rand_forest = random_forest(param, test_fts, testset)
+    positives, probs_rf, classes_rf = random_forest(param, test_fts, testset)
     prec = precision(positives, test_fts.shape[0])
     print('RandomForest precision: ' + percent(prec))
 
-    # Ensemble voting
-    probs = probs_knn + probs_rand_forest # ORDER OF PROBS_RAND_FOREST!
-    print(probs_knn.shape, probs_rand_forest.shape, probs.shape)
-    print(probs)
 
+    ''' Ensemble voting '''
+
+    # Unite probabilities
+    probs = probs_knn
+    for i in range(n_classes):
+        probs[:, int(classes_rf[i])] += probs_rf[:, i]
+
+    predictions = np.argmax(probs, axis=1)
+
+    # Count positive predictions
+    positives = 0
+    for prediction, file in zip(predictions, testset):
+        if prediction == dataset[file]:
+            positives += 1
+    prec = precision(positives, test_fts.shape[0])
+    print('\nThe solution\'s precision: ' + percent(prec))
