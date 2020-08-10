@@ -2,7 +2,10 @@ import os
 import cv2
 import numpy as np
 import sklearn as sk
-from sklearn import preprocessing, tree, decomposition, ensemble
+from sklearn import preprocessing, decomposition, ensemble
+
+
+n_classes = 16
 
 
 def divide_dataset(train_portion, val_portion):
@@ -21,7 +24,7 @@ def divide_dataset(train_portion, val_portion):
             # Remember the img's name and class
             filename = os.path.join(subdir, file)
             filenames.extend([filename])
-            dataset[filename] = subdir
+            dataset[filename] = ClassIdx[subdir]
     # Number of files in trainset and valset
     train_size = int(files_n * train_portion)
     val_size = int(files_n * val_portion)
@@ -130,67 +133,77 @@ def knn(test_feature, k):
 
     # Find the most popular class among K nearest neighbors
     test_class = None
-    max_n = 0
-    Classes = {}
+    max_prob = 0
+    prob = np.zeros(n_classes)
     i = 0
     for (dist, file) in Dists:
         # Add 1 to the file's class
         train_class = dataset[file]
-        if train_class in Classes:
-            Classes[train_class] += 1
-        else:
-            Classes[train_class] = 1
+        prob[train_class] += 1
 
         # Update the test's class
-        if Classes[train_class] > max_n:
-            max_n = Classes[train_class]
+        if prob[train_class] > max_prob:
+            max_prob = prob[train_class]
             test_class = train_class
 
         i += 1
         if i == k:
             break
-    return test_class
+    prob /= k
+    return test_class, prob
 
 
 # Human friendly class names
-HFCNames = {
-    "dataset\\n01855672": "Bird",
-    "dataset\\n02091244": "Dog",
-    "dataset\\n02114548": "Wolf",
-    "dataset\\n02138441": "Meerkat",
-    "dataset\\n02174001": "Bug",
-    "dataset\\n02950826": "Cannon",
-    "dataset\\n02971356": "Box",
-    "dataset\\n02981792": "Ship",
-    "dataset\\n03075370": "Lock",
-    "dataset\\n03417042": "Garbage truck",
-    "dataset\\n03535780": "Acrobat",
-    "dataset\\n03584254": "mp3 player",
-    "dataset\\n03770439": "Woman",
-    "dataset\\n03773504": "Rocket",
-    "dataset\\n03980874": "Strange scarf",
-    "dataset\\n09256479": "Coral"
+HFCNames = ["Bird", "Dog", "Wolf", "Meerkat", "Bug", "Cannon", "Box", "Ship", "Lock", "Garbage truck", "Acrobat",
+            "mp3 player", "Woman", "Rocket", "Strange scarf", "Coral"]
+
+
+# Indexes of classes
+ClassIdx = {
+    "dataset\\n01855672": 0,
+    "dataset\\n02091244": 1,
+    "dataset\\n02114548": 2,
+    "dataset\\n02138441": 3,
+    "dataset\\n02174001": 4,
+    "dataset\\n02950826": 5,
+    "dataset\\n02971356": 6,
+    "dataset\\n02981792": 7,
+    "dataset\\n03075370": 8,
+    "dataset\\n03417042": 9,
+    "dataset\\n03535780": 10,
+    "dataset\\n03584254": 11,
+    "dataset\\n03770439": 12,
+    "dataset\\n03773504": 13,
+    "dataset\\n03980874": 14,
+    "dataset\\n09256479": 15
 }
 
 
 def validation():
     global param
     max_prec = 0
-    for cur_param in [1, 2, 3, 5, 7, 10, 15, 20, 30, 40]:
-        prec = calc_precision(val_fts, valset, cur_param)
+    for cur_param in [5]:
+        positives, probabilities = fit_knn(val_fts, valset, cur_param)
+        prec = positives / val_fts.shape[0]
         print('For param=' + str(cur_param) + ' precision=' + percent(prec))
         if prec > max_prec:
             max_prec = prec
             param = cur_param
 
 
-def calc_precision(fts, the_set, cur_param = None):
+def fit_knn(fts, the_set, cur_param = None):
     positives = 0
-    for feature, file in zip(fts, the_set):
-        predict_class = knn(feature, cur_param)
+    probabilities = np.zeros((fts.shape[0], n_classes))
+    for i, (feature, file) in enumerate(zip(fts, the_set)):
+        predict_class, prob = knn(feature, cur_param)
         if predict_class == dataset[file]:
             positives += 1
-    return positives / fts.shape[0]
+        probabilities[i] = prob
+    return positives, probabilities
+
+
+def precision(positives, total):
+    return positives / total
 
 
 def dim_reduction():
@@ -209,10 +222,25 @@ def dim_reduction():
     print('Dimensionality\'s reducted (N of fts: %s -> %s)' % (fts_prev_cnt, train_fts.shape[1]))
 
 
-if __name__ == '__main__':
-    global ALGO
-    ALGO = 3
+def random_forest(rand, fts, set):
+    # Define classifier
+    clf = ensemble.RandomForestClassifier(random_state=rand)
+    # clf = tree.DecisionTreeClassifier(splitter='best', random_state=rand)
 
+    # Fit the model and predict
+    clf.fit(train_fts, train_classes)
+    predictions = clf.predict(fts)
+    probs = clf.predict_proba(fts)
+
+    # Get classes of the set
+    positives = 0
+    for prediction, file in zip(predictions, set):
+        if int(prediction) == dataset[file]:
+            positives += 1
+    return positives, probs
+
+
+if __name__ == '__main__':
     # Divide dataset into train-, validation- and testset
     divide_dataset(0.8, 0.1)
 
@@ -241,42 +269,34 @@ if __name__ == '__main__':
     #     # Dimensionality reduction
     #     dim_reduction()
 
-    ''' Prediction '''
-    if ALGO == 1:
-        # Validation
-        validation()
-        print('Validation is done, the best param is ' + str(param))
 
-        # Testing
-        prec = calc_precision(test_fts, testset, param)
-        print('The solution\'s precision: ' + percent(prec))
-        pass
+    ''' KNN '''
+    print('\nKNN:\n')
 
+    # Validation
+    validation()
+    print('Validation is done, the best param is ' + str(param))
+
+    # Testing
+    positives, probs_knn = fit_knn(test_fts, testset, param)
+    prec = precision(positives, test_fts.shape[0])
+    print('KNN precision: ' + percent(prec))
+
+
+    ''' Random Forest '''
+    print('\nRandom Forest:\n')
 
     # Get classes of the trainset
+    global train_classes
     train_classes = np.zeros_like(trainset)
     for i, file in enumerate(trainset):
         train_classes[i] = dataset[file]
 
     # Find the best random_state
     max_prec = 0
-    for rand in range(10):
-        # Define classifier
-        if ALGO == 2:
-            clf = tree.DecisionTreeClassifier(splitter='best', random_state=rand)
-        if ALGO == 3:
-            clf = ensemble.RandomForestClassifier(random_state=rand)
-
-        # Fit the model and predict
-        clf.fit(train_fts, train_classes)
-        val_predictions = clf.predict(val_fts)
-
-        # Get classes of the valset
-        positives = 0
-        for prediction, file in zip(val_predictions, valset):
-            if prediction == dataset[file]:
-                positives += 1
-        prec = positives / val_fts.shape[0]
+    for rand in range(3):
+        positives, _ = random_forest(rand, val_fts, valset)
+        prec = precision(positives, val_fts.shape[0])
         print('For random_state=' + str(rand) + ' precision=' + percent(prec))
         if prec > max_prec:
             max_prec = prec
@@ -284,20 +304,14 @@ if __name__ == '__main__':
 
     # Now we've chosen the best random_state
     print('The best random_state value is ' + str(param))
-    # Define classifier
-    if ALGO == 2:
-        clf = tree.DecisionTreeClassifier(splitter='best', random_state=param)
-    if ALGO == 3:
-        clf = ensemble.RandomForestClassifier(random_state=param)
 
     # Fit the model and predict
-    clf.fit(train_fts, train_classes)
-    test_predictions = clf.predict(test_fts)
+    positives, probs_rand_forest = random_forest(param, test_fts, testset)
+    prec = precision(positives, test_fts.shape[0])
+    print('RandomForest precision: ' + percent(prec))
 
-    # Get classes of the testset
-    positives = 0
-    for prediction, file in zip(test_predictions, testset):
-        if prediction == dataset[file]:
-            positives += 1
-    prec = positives / test_fts.shape[0]
-    print('The solution\'s precision: ' + percent(prec))
+    # Ensemble voting
+    probs = probs_knn + probs_rand_forest # ORDER OF PROBS_RAND_FOREST!
+    print(probs_knn.shape, probs_rand_forest.shape, probs.shape)
+    print(probs)
+
