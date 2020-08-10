@@ -2,7 +2,7 @@ import os
 import cv2
 import numpy as np
 import sklearn as sk
-from sklearn import preprocessing, decomposition, ensemble, svm
+from sklearn import preprocessing, decomposition, ensemble, svm, gaussian_process
 
 
 n_classes = 16
@@ -221,12 +221,14 @@ def dim_reduction():
     print('  Dimensionality\'s reducted (N of fts: %s -> %s)' % (fts_prev_cnt, train_fts.shape[1]))
 
 
-def rf_svm_classifiers(rand, fts, set, cl_type):
+def classifier(rand, fts, set, cl_type):
     # Define classifier
     if cl_type == 'rf':
         clf = ensemble.RandomForestClassifier(random_state=rand)
     if cl_type == 'svm':
         clf = svm.SVC(probability=True, random_state=rand)
+    if cl_type == 'gauss':
+        clf = gaussian_process.GaussianProcessClassifier(random_state=rand)
     # clf = tree.DecisionTreeClassifier(splitter='best', random_state=rand)
 
     # Fit the model and predict
@@ -260,18 +262,20 @@ def do_knn():
     return probs_knn
 
 
-def do_rf_or_svm(cl_type):
+def use_classifier(cl_type):
     if cl_type == 'rf':
         algo_idx = 1
     if cl_type == 'svm':
         algo_idx = 2
+    if cl_type == 'gauss':
+        algo_idx = 3
 
     if validate[algo_idx]:
         # Find the best random_state
         param = None
         max_prec = 0
         for rand in range(10):
-            positives, _, _ = rf_svm_classifiers(rand, val_fts, valset, cl_type)
+            positives, _, _ = classifier(rand, val_fts, valset, cl_type)
             prec = precision(positives, val_fts.shape[0])
             print('For random_state=' + str(rand) + ' precision=' + percent(prec))
             if prec > max_prec:
@@ -284,7 +288,7 @@ def do_rf_or_svm(cl_type):
         param = 0
 
     # Fit the model and predict
-    positives, probs_algo, classes_algo = rf_svm_classifiers(param, test_fts, testset, cl_type)
+    positives, probs_algo, classes_algo = classifier(param, test_fts, testset, cl_type)
     prec = precision(positives, test_fts.shape[0])
     print('  precision: ' + percent(prec))
     return probs_algo, classes_algo
@@ -314,7 +318,9 @@ def normalize_and_dim_reduct(algo_idx):
 def visualise(predictions):
     for prediction, file in zip(predictions, testset):
         print(HFCNames[dataset[file]] + ' -> ' + HFCNames[prediction])
-        cv2.imshow('Classifier', cv2.imread(file))
+        img = cv2.imread(file)
+        img = cv2.resize(img, (img.shape[1] * 3, img.shape[0] * 3))
+        cv2.imshow('Classifier', img)
         cv2.waitKey(0)
 
 
@@ -341,12 +347,14 @@ if __name__ == '__main__':
     print('Features are calculated')
 
 
-    ''' KNN '''
+    # WASN'T HELPFUL ON THE ENSEMBLE VOTING STAGE
+    # ''' KNN '''
+    #
+    # # Normalization and dimension reduction
+    # normalize_and_dim_reduct(0)
+    #
+    # probs_knn = do_knn()
 
-    # Normalization and dimension reduction
-    normalize_and_dim_reduct(0)
-
-    probs_knn = do_knn()
 
     ''' Random Forest '''
 
@@ -360,7 +368,7 @@ if __name__ == '__main__':
     train_classes = np.zeros_like(trainset)
     for i, file in enumerate(trainset):
         train_classes[i] = dataset[file]
-    probs_rf, classes_rf = do_rf_or_svm('rf')
+    probs_rf, classes_rf = use_classifier('rf')
 
 
     ''' Radial SVM '''
@@ -370,38 +378,47 @@ if __name__ == '__main__':
     # Normalization and dimension reduction
     normalize_and_dim_reduct(2)
 
-    probs_svm, classes_svm = do_rf_or_svm('svm')
+    probs_svm, classes_svm = use_classifier('svm')
+
+
+    # TOO SLOW FOR SUCH A BIG NUMBER OF FEATURES :_(
+    # ''' Gaussian Process '''
+    #
+    # print('\nGaussian Process:')
+    #
+    # # Normalization and dimension reduction
+    # normalize_and_dim_reduct(3)
+    #
+    # probs_gauss, classes_gauss = use_classifier('gauss')
 
 
     ''' Ensemble voting '''
 
     max_prec = 0
-    param = [None, None]
+    param = None
     final_predicts = None
-    for param_knn in np.arange(0, 1.01, 0.05):
-        for param_rf in np.arange(0, 1.01 - param_knn, 0.05):
-            param_svm = 1 - param_knn - param_rf
-            # Unite probabilities
-            probs = probs_knn * param_knn
-            for i in range(n_classes):
-                probs[:, int(classes_rf[i])] += probs_rf[:, i] * param_rf
-                probs[:, int(classes_svm[i])] += probs_svm[:, i] * param_svm
+    for param_rf in np.arange(0, 1.01, 0.05):
+        param_svm = 1 - param_rf
+        # Unite probabilities
+        probs = np.zeros_like(probs_rf)
+        for i in range(n_classes):
+            probs[:, int(classes_rf[i])] += probs_rf[:, i] * param_rf
+            probs[:, int(classes_svm[i])] += probs_svm[:, i] * param_svm
 
-            predictions = np.argmax(probs, axis=1)
+        predictions = np.argmax(probs, axis=1)
 
-            # Count positive predictions
-            positives = 0
-            for prediction, file in zip(predictions, testset):
-                if prediction == dataset[file]:
-                    positives += 1
-            prec = precision(positives, test_fts.shape[0])
-            # Update param
-            if prec > max_prec:
-                max_prec = prec
-                param[0] = param_knn
-                param[1] = param_rf
-                final_predicts = predictions
-    print('\nEnsemble voting:\n  best param=' + "[%.2f, %.2f]" % (param[0], param[1]))
+        # Count positive predictions
+        positives = 0
+        for prediction, file in zip(predictions, testset):
+            if prediction == dataset[file]:
+                positives += 1
+        prec = precision(positives, test_fts.shape[0])
+        # Update param
+        if prec > max_prec:
+            max_prec = prec
+            param = param_rf
+            final_predicts = predictions
+    print('\nEnsemble voting:\n  best param=' + "%.2f" % param)
     print('  The solution\'s precision: ' + percent(max_prec))
 
     # Show testing images and their predicted classes
