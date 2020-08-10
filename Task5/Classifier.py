@@ -317,10 +317,19 @@ def normalize_and_dim_reduct(algo_idx):
 
 def visualise(predictions):
     for prediction, file in zip(predictions, testset):
-        print(HFCNames[dataset[file]] + ' -> ' + HFCNames[prediction])
+        # Read an image
         img = cv2.imread(file)
         img = cv2.resize(img, (img.shape[1] * 3, img.shape[0] * 3))
-        cv2.imshow('Classifier', img)
+        # Background for the image and text
+        main_img = 255 * np.ones((img.shape[1] + 80, img.shape[0] + 20, img.shape[2]), dtype=np.uint8)
+        main_img[70:-10, 10:-10] = img
+
+        cv2.putText(main_img, HFCNames[dataset[file]] + ' ==>',
+                    (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 1)
+        cv2.putText(main_img, HFCNames[prediction],
+                    (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 1)
+
+        cv2.imshow('Classifier', main_img)
         cv2.waitKey(0)
 
 
