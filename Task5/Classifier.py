@@ -274,24 +274,27 @@ def use_classifier(cl_type):
         # Find the best random_state
         param = None
         max_prec = 0
+        val_best_probs = None
         for rand in range(10):
-            positives, _, _ = classifier(rand, val_fts, valset, cl_type)
+            positives, val_probs, _ = classifier(rand, val_fts, valset, cl_type)
             prec = precision(positives, val_fts.shape[0])
-            print('For random_state=' + str(rand) + ' precision=' + percent(prec))
+            print('  For random_state=' + str(rand) + ' precision=' + percent(prec))
             if prec > max_prec:
                 max_prec = prec
                 param = rand
+                val_best_probs = val_probs
 
         # Now we've chosen the best random_state
-        print('Validation is done, the best random_state value is ' + str(param))
+        print('  Validation is done, the best random_state value is ' + str(param))
     else:
         param = 0
+        _, val_best_probs, _ = classifier(param, val_fts, valset, cl_type)
 
     # Fit the model and predict
     positives, probs_algo, classes_algo = classifier(param, test_fts, testset, cl_type)
     prec = precision(positives, test_fts.shape[0])
     print('  precision: ' + percent(prec))
-    return probs_algo, classes_algo
+    return probs_algo, val_best_probs, classes_algo
 
 
 def normalize_and_dim_reduct(algo_idx):
@@ -337,7 +340,7 @@ if __name__ == '__main__':
     # Turn off validation for better testing
     # (default parameters may perform worse for other datasets)
     global validate
-    validate = [False, False, False]
+    validate = [False, False, False, False]
     # Normalize method, if -1 ==> features won't be normalized
     global normalize_method
     normalize_method = [-1, -1, 1]
@@ -367,7 +370,7 @@ if __name__ == '__main__':
 
     ''' Random Forest '''
 
-    print('\nRandom Forest:')
+    print('Random Forest:')
 
     # Normalization and dimension reduction
     normalize_and_dim_reduct(1)
@@ -377,17 +380,17 @@ if __name__ == '__main__':
     train_classes = np.zeros_like(trainset)
     for i, file in enumerate(trainset):
         train_classes[i] = dataset[file]
-    probs_rf, classes_rf = use_classifier('rf')
+    probs_rf, val_probs_rf, classes_rf = use_classifier('rf')
 
 
     ''' Radial SVM '''
 
-    print('\nRadial SVM:')
+    print('Radial SVM:')
 
     # Normalization and dimension reduction
     normalize_and_dim_reduct(2)
 
-    probs_svm, classes_svm = use_classifier('svm')
+    probs_svm, val_probs_svm, classes_svm = use_classifier('svm')
 
 
     # TOO SLOW FOR SUCH A BIG NUMBER OF FEATURES :_(
@@ -403,32 +406,60 @@ if __name__ == '__main__':
 
     ''' Ensemble voting '''
 
-    max_prec = 0
-    param = None
-    final_predicts = None
-    for param_rf in np.arange(0, 1.01, 0.05):
-        param_svm = 1 - param_rf
-        # Unite probabilities
-        probs = np.zeros_like(probs_rf)
-        for i in range(n_classes):
-            probs[:, int(classes_rf[i])] += probs_rf[:, i] * param_rf
-            probs[:, int(classes_svm[i])] += probs_svm[:, i] * param_svm
+    print('Ensemble voting:')
+    # Validation
+    if validate[3]:
+        max_prec = 0
+        param = None
+        for param_rf in np.arange(0, 1.01, 0.05):
+            param_svm = 1 - param_rf
+            # Unite probabilities
+            probs = np.zeros_like(probs_rf)
+            for i in range(n_classes):
+                probs[:, int(classes_rf[i])] += val_probs_rf[:, i] * param_rf
+                probs[:, int(classes_svm[i])] += val_probs_svm[:, i] * param_svm
 
-        predictions = np.argmax(probs, axis=1)
+            predictions = np.argmax(probs, axis=1)
 
-        # Count positive predictions
-        positives = 0
-        for prediction, file in zip(predictions, testset):
-            if prediction == dataset[file]:
-                positives += 1
-        prec = precision(positives, test_fts.shape[0])
-        # Update param
-        if prec > max_prec:
-            max_prec = prec
-            param = param_rf
-            final_predicts = predictions
-    print('\nEnsemble voting:\n  best param=' + "%.2f" % param)
-    print('  The solution\'s precision: ' + percent(max_prec))
+            # Count positive predictions
+            positives = 0
+            for prediction, file in zip(predictions, valset):
+                if prediction == dataset[file]:
+                    positives += 1
+            prec = precision(positives, val_fts.shape[0])
+            print('  For param_rf=' + str(param_rf) + ' precision=' + percent(prec))
+            # Update param
+            if prec > max_prec:
+                max_prec = prec
+                param = param_rf
+
+        print('  Validation is done, the best param_rf value is ' + "%.2f" % param)
+    else:
+        param = 0.5
+
+    # Testing
+    param_rf = param
+    param_svm = 1 - param_rf
+    # Unite probabilities
+    probs = np.zeros_like(probs_rf)
+    for i in range(n_classes):
+        probs[:, int(classes_rf[i])] += probs_rf[:, i] * param_rf
+        probs[:, int(classes_svm[i])] += probs_svm[:, i] * param_svm
+
+    predictions = np.argmax(probs, axis=1)
+
+    # Count positive predictions
+    positives = 0
+    markers = np.zeros_like(predictions)
+    for i, (prediction, file) in enumerate(zip(predictions, testset)):
+        markers[i] = dataset[file]
+        if prediction == markers[i]:
+            positives += 1
+    prec = precision(positives, test_fts.shape[0])
+    print('  The solution\'s precision: ' + percent(prec))
+
+    print(predictions)
+    print(markers)
 
     # Show testing images and their predicted classes
-    visualise(final_predicts)
+    visualise(predictions)
