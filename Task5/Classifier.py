@@ -2,7 +2,7 @@ import os
 import cv2
 import numpy as np
 import sklearn as sk
-from sklearn import preprocessing, decomposition, ensemble, svm, gaussian_process
+from sklearn import preprocessing, decomposition, ensemble, svm, gaussian_process, metrics
 
 
 n_classes = 16
@@ -336,6 +336,116 @@ def visualise(predictions):
         cv2.waitKey(0)
 
 
+def show_metrics(markers, predictions):
+    # Confusion Matrix, true pos, false pos, true neg, false neg
+    conf_mat = np.zeros((n_classes, n_classes), dtype=np.uint32)
+    tp = np.zeros(n_classes, dtype=np.uint32)
+    fp = np.zeros(n_classes, dtype=np.uint32)
+    tn = np.zeros(n_classes, dtype=np.uint32)
+    fn = np.zeros(n_classes, dtype=np.uint32)
+    for real, pred in zip(markers, predictions):
+        conf_mat[pred, real] += 1
+        if real == pred:
+            tp[real] += 1
+        else:
+            fn[real] += 1
+            fp[pred] += 1
+        for i in range(n_classes):
+            if i != real and i != pred:
+                tn[i] += 1
+
+    # Calculate metrics' values
+    metric_name = ['Average Accuracy', 'Error Rate', 'micro-Precision', 'micro-Recall', 'micro-Fscore',
+                   'Macro-Precision', 'Macro-Recall', 'Macro-Fscore']
+    metric_value = np.zeros(len(metric_name), dtype=np.float32)
+    for TP, FP, TN, FN in zip(tp, fp, tn, fn):
+        # Average Accuracy
+        metric_value[0] += (TP + TN) / (TP + FP + TN + FN) / n_classes
+        # Error Rate
+        metric_value[1] += (FP + FN) / (TP + FP + TN + FN) / n_classes
+        # Macro-Precision
+        metric_value[5] += TP / (TP + FP) / n_classes
+        # Macro-Recall
+        metric_value[6] += TP / (TP + FN) / n_classes
+    # micro-Precision
+    metric_value[2] = np.sum(tp) / (np.sum(tp) + np.sum(fp))
+    # micro-Recall
+    metric_value[3] = np.sum(tp) / (np.sum(tp) + np.sum(fn))
+    # micro-Fscore
+    metric_value[4] = 2 * metric_value[2] * metric_value[3] / (metric_value[2] + metric_value[3])
+    # Macro-Fscore
+    metric_value[7] = 2 * metric_value[5] * metric_value[6] / (metric_value[5] + metric_value[6])
+
+    # Show the confusion matrix
+    # Hat
+    hor_line = '+' + 10 * '-' + '+' + n_classes * (7 * '-' + '+')
+    print('\nConfusion Matrix:\n' + hor_line)
+    print('|\\' + 9 * ' ' + '|' + n_classes * (7 * ' ' + '|'))
+    print('| \\' + ' Actual |', end='')
+    for real in range(n_classes):
+        space_idx = HFCNames[real].find(' ')
+        if space_idx == -1:
+            l = len(HFCNames[real])
+            print(((7 - l) // 2 + (7 - l) % 2) * ' ' + HFCNames[real] + ((7 - l) // 2) * ' ' + '|', end='')
+        else:
+            l = space_idx
+            print(((7 - l) // 2 + (7 - l) % 2) * ' ' + HFCNames[real][:space_idx] + ((7 - l) // 2) * ' ' + '|', end='')
+    print('\n|  \\______ |', end='')
+    for real in range(n_classes):
+        space_idx = HFCNames[real].find(' ')
+        if space_idx == -1:
+            print(7 * ' ' + '|', end='')
+        else:
+            l = len(HFCNames[real]) - space_idx - 1
+            print(((7 - l) // 2 + (7 - l) % 2) * ' ' + HFCNames[real][space_idx + 1:] + ((7 - l) // 2) * ' ' + '|', end='')
+    print('\n|Predicted\\|' + n_classes * (7 * ' ' + '|'))
+    print(hor_line)
+
+    # Main part
+    for pred in range(n_classes):
+        # Prediction column (1 line)
+        print('|', end='')
+        space_idx = HFCNames[pred].find(' ')
+        if space_idx == -1:
+            print(10 * ' ' + '|', end='')
+        else:
+            l = space_idx
+            print(((10 - l) // 2 + (10 - l) % 2) * ' ' + HFCNames[pred][:space_idx] + ((10 - l) // 2) * ' ' + '|', end='')
+
+        # Values (1 line)
+        print(n_classes * (7 * ' ' + '|'))
+
+        # Prediction column (2 line)
+        print('|', end='')
+        if space_idx == -1:
+            l = len(HFCNames[pred])
+            print(((10 - l) // 2 + (10 - l) % 2) * ' ' + HFCNames[pred] + ((10 - l) // 2) * ' ' + '|', end='')
+        else:
+            l = len(HFCNames[pred]) - space_idx - 1
+            print(((10 - l) // 2 + (10 - l) % 2) * ' ' + HFCNames[pred][space_idx + 1:] + ((10 - l) // 2) * ' ' + '|', end='')
+
+        # Values (2 line)
+        for real in range(n_classes):
+            print('  ', end='')
+            number = conf_mat[pred, real]
+            digits_before = False
+            for i in [100, 10, 1]:
+                digit = number // i
+                if digit == 0 and ~digits_before and i != 1:
+                    print(' ', end='')
+                else:
+                    print(str(digit), end='')
+                    digits_before = True
+                number %= i
+            print('  |', end='')
+        print('\n' + hor_line)
+
+    # Show the metrics
+    print()
+    for name, value in zip(metric_name, metric_value):
+        print(name + ' = ' + percent(value))
+
+
 if __name__ == '__main__':
     # Turn off validation for better testing
     # (default parameters may perform worse for other datasets)
@@ -458,8 +568,10 @@ if __name__ == '__main__':
     prec = precision(positives, test_fts.shape[0])
     print('  The solution\'s precision: ' + percent(prec))
 
-    print(predictions)
-    print(markers)
+    # Solution's metrics
+    show_metrics(markers, predictions)
+    # print(metrics.classification_report(markers, predictions, digits=4))
+
 
     # Show testing images and their predicted classes
     visualise(predictions)
