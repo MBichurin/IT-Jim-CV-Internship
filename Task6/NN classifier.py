@@ -1,8 +1,13 @@
 import os
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 import sklearn as sk
 from sklearn import preprocessing, decomposition
+from tensorflow.keras.models import Model as keras_Model
+from tensorflow.keras.layers import Input as keras_Input
+from tensorflow.keras.layers import Dense as keras_Dense
+from tensorflow.keras.optimizers import Adam as keras_Adam
 
 
 n_classes = 16
@@ -37,6 +42,13 @@ def divide_dataset(train_portion, val_portion):
 
     print('The dataset is divided: train - ' + percent(train_portion) + ', validation - ' + percent(val_portion) +
           ', test - ' + percent(1 - train_portion - val_portion))
+
+
+def get_markers(img_list):
+    markers = np.zeros((len(img_list), n_classes), dtype=np.byte)
+    for i, img in enumerate(img_list):
+        markers[i][dataset[img]] = 1
+    return markers
 
 
 def percent(float_num):
@@ -268,5 +280,72 @@ ClassIdx = {
 }
 
 
+def create_model():
+    # Don't show the number of images to our NN
+    input_shape = train_fts.shape[1:]
+    # Define the structure of a Neural Network
+    input = keras_Input(shape=input_shape)
+    hidden_layer = keras_Dense(256)(input)
+    hidden_layer = keras_Dense(256)(hidden_layer)
+    hidden_layer = keras_Dense(64)(hidden_layer)
+    hidden_layer = keras_Dense(32)(hidden_layer)
+    classify_layer = keras_Dense(n_classes, activation='sigmoid')(hidden_layer)
+    # Create a model
+    model = keras_Model(inputs=input, outputs=classify_layer)
+    gd_algo = keras_Adam()
+    model.compile(loss='categorical_crossentropy', optimizer=gd_algo, metrics=['accuracy'])
+    return model
+
+
+def train(model):
+    history = model.fit(train_fts, train_markers, batch_size=32, epochs=100, validation_data=(val_fts, val_markers))
+
+    plt.plot(history.history['accuracy'])
+    plt.plot(history.history['val_accuracy'])
+    plt.legend(['train', 'valid'], loc='best')
+    plt.show()
+
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.legend(['train', 'valid'], loc='best')
+    plt.show()
+
+    return model
+
+
 if __name__ == '__main__':
-    pass
+    # Divide dataset into train-, validation- and testset
+    divide_dataset(0.8, 0.1)
+    # Get images' features sets
+    global train_fts, val_fts, test_fts
+    train_fts = calc_fts(trainset)
+    val_fts = calc_fts(valset)
+    test_fts = calc_fts(testset)
+    print('Features are calculated')
+    # Get one-hot markers of images
+    global train_markers, val_markers, test_markers
+    train_markers = get_markers(trainset)
+    val_markers = get_markers(valset)
+    test_markers = get_markers(testset)
+
+    # Normalization and dimension reduction
+    # train_fts, std_scale_hog, std_scale_loc_hist = normalize(train_fts)
+    # val_fts, std_scale_hog, std_scale_loc_hist = normalize(val_fts, std_scale_hog, std_scale_loc_hist)
+    # test_fts, std_scale_hog, std_scale_loc_hist = normalize(test_fts, std_scale_hog, std_scale_loc_hist)
+
+    # std_scale = preprocessing.StandardScaler().fit(train_fts)
+    # train_fts = std_scale.transform(train_fts)
+    # val_fts = std_scale.transform(val_fts)
+    # test_fts = std_scale.transform(test_fts)
+
+    # dim_reduction()
+
+    # Create a model
+    model = create_model()
+
+    # Train a model
+    model = train(model)
+
+    loss_and_metrics = model.evaluate(test_fts, test_markers)
+    print('Test loss:', loss_and_metrics[0])
+    print('Test accuracy:', loss_and_metrics[1])
