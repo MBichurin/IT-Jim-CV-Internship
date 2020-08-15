@@ -7,6 +7,9 @@ from sklearn import preprocessing, decomposition
 from tensorflow.keras.models import Model as keras_Model
 from tensorflow.keras.layers import Input as keras_Input
 from tensorflow.keras.layers import Dense as keras_Dense
+from tensorflow.keras.layers import Conv2D as keras_Conv2D
+from tensorflow.keras.layers import MaxPooling2D as keras_MaxPooling2D
+from tensorflow.keras.layers import Flatten as keras_Flatten
 from tensorflow.keras.optimizers import Adam as keras_Adam
 
 
@@ -53,6 +56,20 @@ def get_markers(img_list):
 
 def percent(float_num):
     return ("%.2f" % (float_num * 100)) + '%'
+
+
+def read_pics():
+    global train_pics, val_pics, test_pics
+    train_pics = np.zeros((len(trainset), 84, 84, 3), dtype=np.float32)
+    val_pics = np.zeros((len(valset), 84, 84, 3), dtype=np.float32)
+    test_pics = np.zeros((len(testset), 84, 84, 3), dtype=np.float32)
+
+    for i, file in enumerate(trainset):
+        train_pics[i] = cv2.imread(file) / 255
+    for i, file in enumerate(valset):
+        val_pics[i] = cv2.imread(file) / 255
+    for i, file in enumerate(testset):
+        test_pics[i] = cv2.imread(file) / 255
 
 
 def calc_fts(set):
@@ -280,25 +297,52 @@ ClassIdx = {
 }
 
 
-def create_model():
-    # Don't show the number of images to our NN
-    input_shape = train_fts.shape[1:]
-    # Define the structure of a Neural Network
-    input = keras_Input(shape=input_shape)
-    hidden_layer = keras_Dense(256)(input)
-    hidden_layer = keras_Dense(256)(hidden_layer)
-    hidden_layer = keras_Dense(64)(hidden_layer)
-    hidden_layer = keras_Dense(32)(hidden_layer)
-    classify_layer = keras_Dense(n_classes, activation='sigmoid')(hidden_layer)
-    # Create a model
-    model = keras_Model(inputs=input, outputs=classify_layer)
-    gd_algo = keras_Adam()
-    model.compile(loss='categorical_crossentropy', optimizer=gd_algo, metrics=['accuracy'])
+def create_model(nn_type):
+    if nn_type == 'fcnn':
+        # Don't show the number of images to our NN
+        input_shape = train_fts.shape[1:]
+        # Define the structure of a Neural Network
+        input = keras_Input(shape=input_shape)
+
+        hidden_layer = keras_Dense(256)(input)
+        hidden_layer = keras_Dense(256)(hidden_layer)
+        hidden_layer = keras_Dense(64)(hidden_layer)
+        hidden_layer = keras_Dense(32)(hidden_layer)
+
+        classify_layer = keras_Dense(n_classes, activation='softmax')(hidden_layer)
+        # Create a model
+        model = keras_Model(inputs=input, outputs=classify_layer)
+        gd_algo = keras_Adam()
+        model.compile(loss='categorical_crossentropy', optimizer=gd_algo, metrics=['accuracy'])
+    if nn_type == 'cnn':
+        # Don't show the number of images to our NN
+        input_shape = train_pics.shape[1:]
+        # Define the structure of a Neural Network
+        input = keras_Input(shape=input_shape)
+
+        hidden_layer = keras_Conv2D(filters=32, kernel_size=(3, 3), padding='same', activation='relu')(input)
+        hidden_layer = keras_MaxPooling2D(pool_size=(2, 2), strides=(2, 2))(hidden_layer)
+        hidden_layer = keras_Conv2D(filters=32, kernel_size=(3, 3), padding='same', activation='relu')(hidden_layer)
+        hidden_layer = keras_MaxPooling2D(pool_size=(2, 2), strides=(2, 2))(hidden_layer)
+        hidden_layer = keras_Flatten()(hidden_layer)
+
+        hidden_layer = keras_Dense(64, activation='relu')(hidden_layer)
+        hidden_layer = keras_Dense(32, activation='relu')(hidden_layer)
+
+        classify_layer = keras_Dense(n_classes, activation='sigmoid')(hidden_layer)
+
+        # Create a model
+        model = keras_Model(inputs=input, outputs=classify_layer)
+        gd_algo = keras_Adam()
+        model.compile(loss='categorical_crossentropy', optimizer=gd_algo, metrics=['accuracy'])
     return model
 
 
-def train(model):
-    history = model.fit(train_fts, train_markers, batch_size=32, epochs=100, validation_data=(val_fts, val_markers))
+def train(model, nn_type):
+    if nn_type == 'fcnn':
+        history = model.fit(train_fts, train_markers, batch_size=32, epochs=100, validation_data=(val_fts, val_markers))
+    if nn_type == 'cnn':
+        history = model.fit(train_pics, train_markers, batch_size=128, epochs=30, validation_data=(val_pics, val_markers))
 
     plt.plot(history.history['accuracy'])
     plt.plot(history.history['val_accuracy'])
@@ -316,6 +360,8 @@ def train(model):
 if __name__ == '__main__':
     # Divide dataset into train-, validation- and testset
     divide_dataset(0.8, 0.1)
+    # Read and save images
+    read_pics()
     # Get images' features sets
     global train_fts, val_fts, test_fts
     train_fts = calc_fts(trainset)
@@ -341,11 +387,15 @@ if __name__ == '__main__':
     # dim_reduction()
 
     # Create a model
-    model = create_model()
+    nn_type = 'cnn'
+    model = create_model(nn_type)
 
     # Train a model
-    model = train(model)
+    model = train(model, nn_type)
 
-    loss_and_metrics = model.evaluate(test_fts, test_markers)
+    if nn_type == 'fcnn':
+        loss_and_metrics = model.evaluate(test_fts, test_markers)
+    if nn_type == 'cnn':
+        loss_and_metrics = model.evaluate(test_pics, test_markers)
     print('Test loss:', loss_and_metrics[0])
     print('Test accuracy:', loss_and_metrics[1])
