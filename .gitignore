@@ -7,4 +7,5 @@
 *.jpg
 *.xcf
 *.json
+*.h5
 filters_test.py
