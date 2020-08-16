@@ -348,11 +348,8 @@ def create_model(nn_type):
     return model
 
 
-def train(model, nn_type):
-    if nn_type == 'fcnn':
-        history = model.fit(train_fts, train_markers, batch_size=32, epochs=100, validation_data=(val_fts, val_markers))
-    if nn_type == 'cnn':
-        history = model.fit(train_pics, train_markers, batch_size=128, epochs=30, validation_data=(val_pics, val_markers))
+def train(model, train_fts, train_markers, val_fts, val_markers, batch_size, epochs):
+    history = model.fit(train_fts, train_markers, batch_size, epochs, validation_data=(val_fts, val_markers))
 
     plt.plot(history.history['accuracy'])
     plt.plot(history.history['val_accuracy'])
@@ -378,6 +375,12 @@ def load_model(filename):
     model = model_from_json(file.read())
     model.load_weights(filename + '.h5')
     return model
+
+
+def test(model, fts, markers):
+    loss_and_metrics = model.evaluate(fts, markers)
+    print('Test loss:', loss_and_metrics[0])
+    print('Test accuracy:', loss_and_metrics[1])
 
 
 if __name__ == '__main__':
@@ -410,18 +413,20 @@ if __name__ == '__main__':
     # dim_reduction()
 
     # Create a model
-    nn_type = 'cnn'
+    nn_type = 'fcnn'
     model = create_model(nn_type)
 
-    # Train a model
-    model = train(model, nn_type)
-
+    # Train model
     if nn_type == 'fcnn':
-        loss_and_metrics = model.evaluate(test_fts, test_markers)
+        train(model, train_fts, train_markers, val_fts, val_markers, 32, 100)
     if nn_type == 'cnn':
-        loss_and_metrics = model.evaluate(test_pics, test_markers)
-    print('Test loss:', loss_and_metrics[0])
-    print('Test accuracy:', loss_and_metrics[1])
+        train(model, train_pics, train_markers, val_pics, val_markers, 128, 30)
+
+    # Test model
+    if nn_type == 'fcnn':
+        test(model, test_fts, test_markers)
+    if nn_type == 'cnn':
+        test(model, test_pics, test_markers)
 
 
     # Save model
@@ -434,9 +439,4 @@ if __name__ == '__main__':
     # Compile the model
     model = compile_model(model, nn_type)
 
-    if nn_type == 'fcnn':
-        loss_and_metrics = model.evaluate(test_fts, test_markers)
-    if nn_type == 'cnn':
-        loss_and_metrics = model.evaluate(test_pics, test_markers)
-    print('Test loss:', loss_and_metrics[0])
-    print('Test accuracy:', loss_and_metrics[1])
+    test(model)
