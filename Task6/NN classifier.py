@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import sklearn as sk
+import tensorflow as tf
 from sklearn import preprocessing, decomposition
 from tensorflow.keras.models import Model as keras_Model
 from tensorflow.keras.models import model_from_json
@@ -339,7 +340,7 @@ def create_model(nn_type):
         hidden_layer = keras_Dense(64, activation='relu')(hidden_layer)
         hidden_layer = keras_Dense(32, activation='relu')(hidden_layer)
 
-        classify_layer = keras_Dense(n_classes, activation='sigmoid')(hidden_layer)
+        classify_layer = keras_Dense(n_classes, activation='softmax')(hidden_layer)
 
         # Create a model
         model = keras_Model(inputs=input, outputs=classify_layer)
@@ -378,12 +379,54 @@ def load_model(filename):
 
 
 def test(model, fts, markers):
-    loss_and_metrics = model.evaluate(fts, markers)
-    print('Test loss:', loss_and_metrics[0])
-    print('Test accuracy:', loss_and_metrics[1])
+    predictions = model.predict(fts, verbose=0)
+    predictions = tf.argmax(predictions, axis=1)
+    markers = tf.argmax(markers, axis=1)
+    show_metrics(markers, predictions)
+    print()
+
+
+def infer(model, nn_type, mode, name):
+    print('Inference:')
+    if mode == 'file':
+        if nn_type == 'fcnn':
+            fts = calc_fts([name])
+
+        if nn_type == 'cnn':
+            img = cv2.imread(name) / 255
+            fts = np.expand_dims(img, axis=0)
+
+        predictions = model.predict(fts, verbose=0)
+        print('  "' + name + '":\n    ', end='')
+        for i, class_prob in enumerate(predictions[0]):
+            print(HFCNames[i] + ' - ' + percent(class_prob), end='; ')
+        print()
+
+    if mode == 'folder':
+        # Iterate through all the files in the dataset
+        for subdir, ris, files in os.walk(name):
+            for file in files:
+                filename = os.path.join(subdir, file)
+
+                if nn_type == 'fcnn':
+                    fts = calc_fts([filename])
+                if nn_type == 'cnn':
+                    img = cv2.imread(filename) / 255
+                    fts = np.expand_dims(img, axis=0)
+
+                predictions = model.predict(fts, verbose=0)
+                print('  "' + filename + '":\n    ', end='')
+                for i, class_prob in enumerate(predictions[0]):
+                    print(HFCNames[i] + ' - ' + percent(class_prob), end='; ')
+                print()
 
 
 if __name__ == '__main__':
+    # Model type
+    nn_type = 'cnn'
+    # Source of model == 'load', == 'create'
+    model_source = 'create'
+
     # Divide dataset into train-, validation- and testset
     divide_dataset(0.8, 0.1)
     # Read and save images
@@ -412,31 +455,31 @@ if __name__ == '__main__':
 
     # dim_reduction()
 
-    # Create a model
-    nn_type = 'fcnn'
-    model = create_model(nn_type)
+    if model_source == 'create':
+        # Create a model
+        model = create_model(nn_type)
 
-    # Train model
-    if nn_type == 'fcnn':
-        train(model, train_fts, train_markers, val_fts, val_markers, 32, 30)
-    if nn_type == 'cnn':
-        train(model, train_pics, train_markers, val_pics, val_markers, 128, 30)
+        # Train model
+        if nn_type == 'fcnn':
+            train(model, train_fts, train_markers, val_fts, val_markers, 32, 30)
+        if nn_type == 'cnn':
+            train(model, train_pics, train_markers, val_pics, val_markers, 128, 30)
 
-    # Test model
-    if nn_type == 'fcnn':
-        test(model, test_fts, test_markers)
-    if nn_type == 'cnn':
-        test(model, test_pics, test_markers)
+        # Test model
+        if nn_type == 'fcnn':
+            test(model, test_fts, test_markers)
+        if nn_type == 'cnn':
+            test(model, test_pics, test_markers)
 
+        # Infer
+        # infer(model, nn_type, 'file', testset[0])
+        infer(model, nn_type, 'folder', 'dataset\\n01855672')
 
-    # Save model
-    save_model(model, nn_type)
+        # Save model
+        save_model(model, nn_type)
 
     # Load model
     model = load_model(nn_type)
-
-
-    # Compile the model
     model = compile_model(model, nn_type)
 
     # Test model
@@ -444,3 +487,7 @@ if __name__ == '__main__':
         test(model, test_fts, test_markers)
     if nn_type == 'cnn':
         test(model, test_pics, test_markers)
+
+    # Infer
+    # infer(model, nn_type, 'file', testset[0])
+    infer(model, nn_type, 'folder', 'dataset\\n01855672')
