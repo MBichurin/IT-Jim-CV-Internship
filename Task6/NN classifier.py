@@ -418,7 +418,7 @@ if __name__ == '__main__':
 
     # Train model
     if nn_type == 'fcnn':
-        train(model, train_fts, train_markers, val_fts, val_markers, 32, 100)
+        train(model, train_fts, train_markers, val_fts, val_markers, 32, 30)
     if nn_type == 'cnn':
         train(model, train_pics, train_markers, val_pics, val_markers, 128, 30)
 
