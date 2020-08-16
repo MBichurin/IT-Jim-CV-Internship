@@ -439,4 +439,8 @@ if __name__ == '__main__':
     # Compile the model
     model = compile_model(model, nn_type)
 
-    test(model)
+    # Test model
+    if nn_type == 'fcnn':
+        test(model, test_fts, test_markers)
+    if nn_type == 'cnn':
+        test(model, test_pics, test_markers)
