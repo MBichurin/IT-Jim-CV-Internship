@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import sklearn as sk
 from sklearn import preprocessing, decomposition
 from tensorflow.keras.models import Model as keras_Model
+from tensorflow.keras.models import model_from_json
 from tensorflow.keras.layers import Input as keras_Input
 from tensorflow.keras.layers import Dense as keras_Dense
 from tensorflow.keras.layers import Conv2D as keras_Conv2D
@@ -297,6 +298,16 @@ ClassIdx = {
 }
 
 
+def compile_model(model, nn_type):
+    gd_algo = keras_Adam()
+    if nn_type == 'fcnn':
+        model.compile(loss='categorical_crossentropy', optimizer=gd_algo, metrics=['accuracy'])
+    if nn_type == 'cnn':
+        model.compile(loss='categorical_crossentropy', optimizer=gd_algo, metrics=['accuracy'])
+
+    return model
+
+
 def create_model(nn_type):
     if nn_type == 'fcnn':
         # Don't show the number of images to our NN
@@ -312,8 +323,7 @@ def create_model(nn_type):
         classify_layer = keras_Dense(n_classes, activation='softmax')(hidden_layer)
         # Create a model
         model = keras_Model(inputs=input, outputs=classify_layer)
-        gd_algo = keras_Adam()
-        model.compile(loss='categorical_crossentropy', optimizer=gd_algo, metrics=['accuracy'])
+
     if nn_type == 'cnn':
         # Don't show the number of images to our NN
         input_shape = train_pics.shape[1:]
@@ -333,8 +343,8 @@ def create_model(nn_type):
 
         # Create a model
         model = keras_Model(inputs=input, outputs=classify_layer)
-        gd_algo = keras_Adam()
-        model.compile(loss='categorical_crossentropy', optimizer=gd_algo, metrics=['accuracy'])
+
+    model = compile_model(model, nn_type)
     return model
 
 
@@ -354,6 +364,19 @@ def train(model, nn_type):
     plt.legend(['train', 'valid'], loc='best')
     plt.show()
 
+    return model
+
+
+def save_model(model, filename):
+    file = open(filename + '.json', 'w')
+    file.write(model.to_json())
+    model.save_weights(filename + '.h5')
+
+
+def load_model(filename):
+    file = open(filename + '.json', 'r')
+    model = model_from_json(file.read())
+    model.load_weights(filename + '.h5')
     return model
 
 
@@ -392,6 +415,24 @@ if __name__ == '__main__':
 
     # Train a model
     model = train(model, nn_type)
+
+    if nn_type == 'fcnn':
+        loss_and_metrics = model.evaluate(test_fts, test_markers)
+    if nn_type == 'cnn':
+        loss_and_metrics = model.evaluate(test_pics, test_markers)
+    print('Test loss:', loss_and_metrics[0])
+    print('Test accuracy:', loss_and_metrics[1])
+
+
+    # Save model
+    save_model(model, nn_type)
+
+    # Load model
+    model = load_model(nn_type)
+
+
+    # Compile the model
+    model = compile_model(model, nn_type)
 
     if nn_type == 'fcnn':
         loss_and_metrics = model.evaluate(test_fts, test_markers)
