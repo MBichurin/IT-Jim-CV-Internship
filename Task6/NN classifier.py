@@ -14,6 +14,11 @@ from tensorflow.keras.layers import MaxPooling2D as keras_MaxPooling2D
 from tensorflow.keras.layers import Flatten as keras_Flatten
 from tensorflow.keras.optimizers import Adam as keras_Adam
 
+import torch
+from torch.utils.data import Dataset as torch_Dataset
+from torch.utils.data import DataLoader as torch_DataLoader
+import torch.nn.functional as F
+
 
 n_classes = 16
 
@@ -50,9 +55,16 @@ def divide_dataset(train_portion, val_portion):
 
 
 def get_markers(img_list):
-    markers = np.zeros((len(img_list), n_classes), dtype=np.byte)
-    for i, img in enumerate(img_list):
-        markers[i][dataset[img]] = 1
+    if package == 'keras':
+        markers = np.zeros((len(img_list), n_classes), dtype=np.byte)
+        for i, img in enumerate(img_list):
+            markers[i][dataset[img]] = 1
+
+    if package == 'torch':
+        markers = np.zeros(len(img_list), dtype=np.longlong)
+        for i, img in enumerate(img_list):
+            markers[i] = dataset[img]
+
     return markers
 
 
@@ -62,16 +74,39 @@ def percent(float_num):
 
 def read_pics():
     global train_pics, val_pics, test_pics
-    train_pics = np.zeros((len(trainset), 84, 84, 3), dtype=np.float32)
-    val_pics = np.zeros((len(valset), 84, 84, 3), dtype=np.float32)
-    test_pics = np.zeros((len(testset), 84, 84, 3), dtype=np.float32)
 
-    for i, file in enumerate(trainset):
-        train_pics[i] = cv2.imread(file) / 255
-    for i, file in enumerate(valset):
-        val_pics[i] = cv2.imread(file) / 255
-    for i, file in enumerate(testset):
-        test_pics[i] = cv2.imread(file) / 255
+    if package == 'keras':
+        train_pics = np.zeros((len(trainset), 84, 84, 3), dtype=np.float32)
+        val_pics = np.zeros((len(valset), 84, 84, 3), dtype=np.float32)
+        test_pics = np.zeros((len(testset), 84, 84, 3), dtype=np.float32)
+
+        for i, file in enumerate(trainset):
+            train_pics[i] = cv2.imread(file) / 255
+        for i, file in enumerate(valset):
+            val_pics[i] = cv2.imread(file) / 255
+        for i, file in enumerate(testset):
+            test_pics[i] = cv2.imread(file) / 255
+
+    if package == 'torch':
+        train_pics = np.zeros((len(trainset), 3, 84, 84), dtype=np.float32)
+        val_pics = np.zeros((len(valset), 3, 84, 84), dtype=np.float32)
+        test_pics = np.zeros((len(testset), 3, 84, 84), dtype=np.float32)
+
+        for i, file in enumerate(trainset):
+            img = cv2.imread(file) / 255
+            train_pics[i][0, :, :] = img[:, :, 0]
+            train_pics[i][1, :, :] = img[:, :, 1]
+            train_pics[i][2, :, :] = img[:, :, 2]
+        for i, file in enumerate(valset):
+            img = cv2.imread(file) / 255
+            val_pics[i][0, :, :] = img[:, :, 0]
+            val_pics[i][1, :, :] = img[:, :, 1]
+            val_pics[i][2, :, :] = img[:, :, 2]
+        for i, file in enumerate(testset):
+            img = cv2.imread(file) / 255
+            test_pics[i][0, :, :] = img[:, :, 0]
+            test_pics[i][1, :, :] = img[:, :, 1]
+            test_pics[i][2, :, :] = img[:, :, 2]
 
 
 def calc_fts(set):
@@ -316,10 +351,10 @@ def create_model(nn_type):
         # Define the structure of a Neural Network
         input = keras_Input(shape=input_shape)
 
-        hidden_layer = keras_Dense(256)(input)
-        hidden_layer = keras_Dense(256)(hidden_layer)
-        hidden_layer = keras_Dense(64)(hidden_layer)
-        hidden_layer = keras_Dense(32)(hidden_layer)
+        hidden_layer = keras_Dense(256, activation='relu')(input)
+        hidden_layer = keras_Dense(256, activation='relu')(hidden_layer)
+        hidden_layer = keras_Dense(64, activation='relu')(hidden_layer)
+        hidden_layer = keras_Dense(32, activation='relu')(hidden_layer)
 
         classify_layer = keras_Dense(n_classes, activation='softmax')(hidden_layer)
         # Create a model
@@ -366,15 +401,25 @@ def train(model, train_fts, train_markers, val_fts, val_markers, batch_size, epo
 
 
 def save_model(model, filename):
-    file = open(filename + '.json', 'w')
-    file.write(model.to_json())
-    model.save_weights(filename + '.h5')
+    if package == 'keras':
+        file = open(filename + '.json', 'w')
+        file.write(model.to_json())
+        model.save_weights(filename + '.h5')
+
+    if package == 'torch':
+        torch.save(model.state_dict(), filename + '.pth')
 
 
-def load_model(filename):
-    file = open(filename + '.json', 'r')
-    model = model_from_json(file.read())
-    model.load_weights(filename + '.h5')
+def load_model(filename, nn_type):
+    if package == 'keras':
+        file = open(filename + '.json', 'r')
+        model = model_from_json(file.read())
+        model.load_weights(filename + '.h5')
+
+    if package == 'torch':
+        model = MyModel(nn_type)
+        model.load_state_dict(torch.load(filename + '.pth'))
+
     return model
 
 
@@ -421,11 +466,211 @@ def infer(model, nn_type, mode, name):
                 print()
 
 
+class MyDataset(torch_Dataset):
+    def __init__(self, nn_type, set_type):
+        if nn_type == 'fcnn':
+            if set_type == 'train':
+                self.x_data = torch.from_numpy(train_fts)
+            if set_type == 'val':
+                self.x_data = torch.from_numpy(val_fts)
+            if set_type == 'test':
+                self.x_data = torch.from_numpy(test_fts)
+
+        if nn_type == 'cnn':
+            if set_type == 'train':
+                self.x_data = torch.from_numpy(train_pics)
+            if set_type == 'val':
+                self.x_data = torch.from_numpy(val_pics)
+            if set_type == 'test':
+                self.x_data = torch.from_numpy(test_pics)
+
+        if set_type == 'train':
+            self.y_data = torch.from_numpy(train_markers)
+        if set_type == 'val':
+            self.y_data = torch.from_numpy(val_markers)
+        if set_type == 'test':
+            self.y_data = torch.from_numpy(test_markers)
+
+        self.len = len(self.x_data)
+
+    def __getitem__(self, index):
+        return (self.x_data[index], self.y_data[index])
+
+    def __len__(self):
+        return self.len
+
+
+class MyModel(torch.nn.Module):
+    def __init__(self, nn_type):
+        self.nn_type = nn_type
+        super(MyModel, self).__init__()
+        if nn_type == 'fcnn':
+            self.dense_L1 = torch.nn.Linear(train_fts.shape[1], 256)
+            self.dense_L2 = torch.nn.Linear(256, 256)
+            self.dense_L3 = torch.nn.Linear(256, 64)
+            self.dense_L4 = torch.nn.Linear(64, 32)
+            self.dense_L5 = torch.nn.Linear(32, n_classes)
+        if nn_type == 'cnn':
+            self.conv_L1 = torch.nn.Conv2d(3, 32, kernel_size=3, padding=1)
+            self.conv_L2 = torch.nn.Conv2d(32, 32, kernel_size=3, padding=1)
+            self.dense_L1 = torch.nn.Linear(32 * 21 * 21, 64)
+            self.dense_L2 = torch.nn.Linear(64, 32)
+            self.dense_L3 = torch.nn.Linear(32, n_classes)
+
+    def forward(self, input):
+        if self.nn_type == 'fcnn':
+            hidden_layer = F.relu(self.dense_L1(input))
+            hidden_layer = F.relu(self.dense_L2(hidden_layer))
+            hidden_layer = F.relu(self.dense_L3(hidden_layer))
+            hidden_layer = F.relu(self.dense_L4(hidden_layer))
+            output = self.dense_L5(hidden_layer)
+
+        if self.nn_type == 'cnn':
+            hidden_layer = F.max_pool2d(F.relu(self.conv_L1(input)), 2)
+            hidden_layer = F.max_pool2d(F.relu(self.conv_L2(hidden_layer)), 2)
+            hidden_layer = hidden_layer.view(-1, 32 * 21 * 21)
+            hidden_layer = F.relu(self.dense_L1(hidden_layer))
+            hidden_layer = F.relu(self.dense_L2(hidden_layer))
+            output = self.dense_L3(hidden_layer)
+
+        # output = F.softmax(output)
+        # output = F.log_softmax(output)
+        return output
+
+
+def train_validate_torch(model, n_epochs, train_loader, val_loader):
+    # Loss function, optimizer
+    criterion = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters())
+
+    # Iterate epochs
+    for epoch in range(n_epochs):
+        print('Epoch ' + str(epoch + 1) + '/' + str(n_epochs) + ':')
+
+        ''' Train '''
+        model.train(True)
+        total_loss = 0
+        batch_cnt = 0
+
+        # Iterate batches
+        for data in train_loader:
+            # Separate features and labels
+            x_train, y_train = data
+            # Wrap in torch Variables; convert to float to calculate loss function
+            x_train, y_train = torch.autograd.Variable(x_train), torch.autograd.Variable(y_train)
+
+            # x_train, y_train = x_train.type(torch.FloatTensor), y_train.type(torch.LongTensor)
+
+            # Get predictions
+            predictions = model(x_train)
+
+            # predictions = predictions.type(torch.FloatTensor)
+
+            # Loss function value
+            loss = criterion(predictions, y_train)
+            # Update total_loss and batch_cnt
+            total_loss += loss.item()
+            batch_cnt += 1
+
+            # Zero out parameter gradients
+            optimizer.zero_grad()
+            # Backward
+            loss.backward()
+            # Update weights
+            optimizer.step()
+
+        print('Train loss = ' + str(total_loss / batch_cnt))
+
+        ''' Validation '''
+        total_loss = 0
+        batch_cnt = 0
+        model.train(False)
+
+        for data in val_loader:
+            # Separate features and labels
+            x_val, y_val = data
+            # Wrap in torch Variables; convert to float to calculate loss function
+            x_val, y_val = torch.autograd.Variable(x_val), torch.autograd.Variable(y_val)
+
+            # x_val, y_val = x_train.type(torch.FloatTensor), y_train.type(torch.LongTensor)
+
+            # Get predictions
+            predictions = model(x_val)
+
+            # predictions = predictions.type(torch.FloatTensor)
+
+            # Loss function value
+            loss = criterion(predictions, y_val)
+            # Update total_loss and batch_cnt
+            total_loss += loss.item()
+            batch_cnt += 1
+
+            # Zero out parameter gradients
+            optimizer.zero_grad()
+
+        print('Validation loss = ' + str(total_loss / batch_cnt))
+
+    return model
+
+
+def test_torch(model, test_loader):
+    model.eval()
+
+    all_predicts = []
+
+    with torch.no_grad():
+        for data in test_loader:
+            # Separate features and labels
+            x_test, y_test = data
+            # Predict
+            predictions = model(x_test)
+            predictions = tf.argmax(predictions, 1)
+            all_predicts.extend(predictions.numpy())
+
+    show_metrics(test_markers, all_predicts)
+
+
+
+def torch_main(nn_type, model_source):
+    # Epochs numbers, batch size
+    n_epochs = 30
+    batch_size = 32
+
+    # Data Loaders
+    train_dataset = MyDataset(nn_type, 'train')
+    train_loader = torch_DataLoader(train_dataset, batch_size, shuffle=False, num_workers=1)
+    val_dataset = MyDataset(nn_type, 'val')
+    val_loader = torch_DataLoader(val_dataset, batch_size, shuffle=False, num_workers=1)
+    test_dataset = MyDataset(nn_type, 'test')
+    test_loader = torch_DataLoader(test_dataset, batch_size, shuffle=False, num_workers=1)
+
+    if model_source == 'create':
+        # Create model
+        model = MyModel(nn_type)
+
+        # Train and validate
+        model = train_validate_torch(model, n_epochs, train_loader, val_loader)
+
+        # Save model
+        save_model(model, nn_type)
+
+    # Load model
+    model = load_model(nn_type, nn_type)
+
+    # Test
+    test_torch(model, test_loader)
+
+
+# Package to use == 'keras' or 'torch'
+package = 'torch'
+
+
 if __name__ == '__main__':
     # Model type
     nn_type = 'cnn'
-    # Source of model == 'load', == 'create'
-    model_source = 'create'
+
+    # Source of model == 'load' or 'create'
+    model_source = 'load'
 
     # Divide dataset into train-, validation- and testset
     divide_dataset(0.8, 0.1)
@@ -455,6 +700,11 @@ if __name__ == '__main__':
 
     # dim_reduction()
 
+    ''' If torch version is required '''
+    if package == 'torch':
+        torch_main(nn_type, model_source)
+        quit(0)
+
     if model_source == 'create':
         # Create a model
         model = create_model(nn_type)
@@ -472,14 +722,14 @@ if __name__ == '__main__':
             test(model, test_pics, test_markers)
 
         # Infer
-        # infer(model, nn_type, 'file', testset[0])
-        infer(model, nn_type, 'folder', 'dataset\\n01855672')
+        infer(model, nn_type, 'file', testset[0])
+        # infer(model, nn_type, 'folder', 'dataset\\n01855672')
 
         # Save model
         save_model(model, nn_type)
 
     # Load model
-    model = load_model(nn_type)
+    model = load_model(nn_type, nn_type)
     model = compile_model(model, nn_type)
 
     # Test model
@@ -489,5 +739,5 @@ if __name__ == '__main__':
         test(model, test_pics, test_markers)
 
     # Infer
-    # infer(model, nn_type, 'file', testset[0])
-    infer(model, nn_type, 'folder', 'dataset\\n01855672')
+    infer(model, nn_type, 'file', testset[0])
+    # infer(model, nn_type, 'folder', 'dataset\\n01855672')
