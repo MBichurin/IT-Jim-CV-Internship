@@ -222,13 +222,17 @@ def show_metrics(markers, predictions):
     metric_value = np.zeros(len(metric_name), dtype=np.float32)
     for TP, FP, TN, FN in zip(tp, fp, tn, fn):
         # Average Accuracy
-        metric_value[0] += (TP + TN) / (TP + FP + TN + FN) / n_classes
+        if TP + FP + TN + FN > 0:
+            metric_value[0] += (TP + TN) / (TP + FP + TN + FN) / n_classes
         # Error Rate
-        metric_value[1] += (FP + FN) / (TP + FP + TN + FN) / n_classes
+        if TP + FP + TN + FN > 0:
+            metric_value[1] += (FP + FN) / (TP + FP + TN + FN) / n_classes
         # Macro-Precision
-        metric_value[5] += TP / (TP + FP) / n_classes
+        if TP + FP > 0:
+            metric_value[5] += TP / (TP + FP) / n_classes
         # Macro-Recall
-        metric_value[6] += TP / (TP + FN) / n_classes
+        if TP + FN > 0:
+            metric_value[6] += TP / (TP + FN) / n_classes
     # micro-Precision
     metric_value[2] = np.sum(tp) / (np.sum(tp) + np.sum(fp))
     # micro-Recall
@@ -466,6 +470,92 @@ def infer(model, nn_type, mode, name):
                 print()
 
 
+def infer_torch(model, mode, name):
+    infer_dataset = InferDataset(nn_type, mode, name)
+    infer_loader = torch_DataLoader(infer_dataset, 100, shuffle=False, num_workers=1)
+
+    model.eval()
+
+    all_probs = []
+
+    with torch.no_grad():
+        for data in infer_loader:
+            # Separate features and labels
+            x_infer, _ = data
+            # Predict
+            predictions = model(x_infer)
+            all_probs.extend(predictions.numpy())
+
+
+    print('Inference:')
+    if mode == 'file':
+        print('  "' + name + '":\n    ', end='')
+        for i, class_prob in enumerate(all_probs[0]):
+            print(HFCNames[i] + ' - ' + percent(class_prob), end='; ')
+        print()
+
+    if mode == 'folder':
+        # File index
+        file_ind = 0
+
+        # Iterate through all the files in the dataset
+        for subdir, ris, files in os.walk(name):
+            for file in files:
+                filename = os.path.join(subdir, file)
+
+                print('  "' + filename + '":\n    ', end='')
+                for i, class_prob in enumerate(all_probs[file_ind]):
+                    print(HFCNames[i] + ' - ' + percent(class_prob), end='; ')
+                print()
+
+                file_ind += 1
+
+
+class InferDataset(torch_Dataset):
+    def __init__(self, nn_type, mode, name):
+        if mode == 'file':
+            if nn_type == 'fcnn':
+                all_fts = calc_fts([name])
+
+            if nn_type == 'cnn':
+                all_fts = np.zeros((1, 3, 84, 84), dtype=np.float32)
+                img = cv2.imread(name) / 255
+                all_fts[0][0, :, :] = img[:, :, 0]
+                all_fts[0][1, :, :] = img[:, :, 1]
+                all_fts[0][2, :, :] = img[:, :, 2]
+
+        if mode == 'folder':
+            all_fts = []
+
+            # Iterate through all the files in the dataset
+            for subdir, ris, files in os.walk(name):
+                for file in files:
+                    filename = os.path.join(subdir, file)
+
+                    if nn_type == 'fcnn':
+                        fts = calc_fts([filename])
+                    if nn_type == 'cnn':
+                        fts = np.zeros((1, 3, 84, 84), dtype=np.float32)
+                        img = cv2.imread(filename) / 255
+                        all_fts[0][0, :, :] = img[:, :, 0]
+                        all_fts[0][1, :, :] = img[:, :, 1]
+                        all_fts[0][2, :, :] = img[:, :, 2]
+
+                    all_fts.extend(fts)
+
+        self.x_data = torch.FloatTensor(all_fts)
+
+        self.len = len(self.x_data)
+
+        self.y_data = np.zeros(self.len)
+
+    def __getitem__(self, index):
+        return (self.x_data[index], self.y_data[index])
+
+    def __len__(self):
+        return self.len
+
+
 class MyDataset(torch_Dataset):
     def __init__(self, nn_type, set_type):
         if nn_type == 'fcnn':
@@ -533,7 +623,7 @@ class MyModel(torch.nn.Module):
             hidden_layer = F.relu(self.dense_L2(hidden_layer))
             output = self.dense_L3(hidden_layer)
 
-        # output = F.softmax(output)
+        output = F.softmax(output)
         # output = F.log_softmax(output)
         return output
 
@@ -630,7 +720,6 @@ def test_torch(model, test_loader):
     show_metrics(test_markers, all_predicts)
 
 
-
 def torch_main(nn_type, model_source):
     # Epochs numbers, batch size
     n_epochs = 30
@@ -660,14 +749,18 @@ def torch_main(nn_type, model_source):
     # Test
     test_torch(model, test_loader)
 
+    # Infer
+    # infer_torch(model, 'file', testset[0])
+    infer_torch(model, 'folder', 'dataset\\n01855672')
+
 
 # Package to use == 'keras' or 'torch'
-package = 'torch'
+package = 'keras'
 
 
 if __name__ == '__main__':
     # Model type
-    nn_type = 'cnn'
+    nn_type = 'fcnn'
 
     # Source of model == 'load' or 'create'
     model_source = 'load'
