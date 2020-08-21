@@ -9,13 +9,18 @@ import albumentations as albu
 from albumentations import pytorch
 
 import cv2
-from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
 
 
+# Datasets, dataloaders, model
+trainset, valset, testset = None, None, None
+train_loader, val_loader, test_loader = None, None, None
+model = None
 # Initialise device to either CUDA or CPU
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-# Number of classes
+# Number of classes, n of channels
 n_classes = 10
+n_channels = 1
 # Human friendly class names
 HFCNames = ["Bird", "Dog", "Wolf", "Meerkat", "Bug", "Cannon", "Box", "Ship", "Lock", "Garbage truck", "Acrobat",
             "mp3 player", "Woman", "Rocket", "Strange scarf", "Coral"]
@@ -38,6 +43,72 @@ ClassIdx = {
     "dataset\\n03980874": 14,
     "dataset\\n09256479": 15
 }
+
+
+class SimpleCNN(torch.nn.Module):
+    def __init__(self):
+        super(SimpleCNN, self).__init__()
+        # (batch_size, n_channels, 28, 28)
+        self.conv_L1 = torch.nn.Conv2d(n_channels, 64, kernel_size=3, padding=1) # ==> (b_s, 64, 28, 28)
+        # Max pooling ==> (b_s, 64, 14, 14)
+        self.batchnorm_L1 = torch.nn.BatchNorm2d(64) # ==> same
+
+        self.conv_L2 = torch.nn.Conv2d(64, 32, kernel_size=3, padding=1) # ==> (b_s, 32, 14, 14)
+        self.batchnorm_L2 = torch.nn.BatchNorm2d(32) # ==> same
+
+        self.conv_L3 = torch.nn.Conv2d(32, 16, kernel_size=3, padding=1) # ==> (b_s, 16, 14, 14)
+        # Max pooling ==> (b_s, 16, 7, 7)
+        self.batchnorm_L3 = torch.nn.BatchNorm2d(16) # ==> same
+
+        # Flatten ==> (b_s, 16 * 7 * 7) == (b_s, 784)
+        self.dense_L1 = torch.nn.Linear(784, 128) # ==> (b_s, 128)
+        self.dense_L2 = torch.nn.Linear(128, 10)  # ==> (b_s, 10)
+
+        self.drop_L = torch.nn.Dropout(0.7)
+
+    def forward(self, x):
+        check_layer_shapes = False
+
+        # (batch_size, n_channels, 28, 28)
+        if check_layer_shapes:
+            print(x.shape)
+        x = F.relu(self.conv_L1(x)) # ==> (b_s, 64, 28, 28)
+        if check_layer_shapes:
+            print(x.shape)
+        x = F.max_pool2d(x, 2) # ==> (b_s, 64, 14, 14)
+        if check_layer_shapes:
+            print(x.shape)
+        x = self.batchnorm_L1(x)
+        x = self.drop_L(x)
+
+        x = F.relu(self.conv_L2(x))  # ==> (b_s, 32, 14, 14)
+        if check_layer_shapes:
+            print(x.shape)
+        x = self.batchnorm_L2(x)
+        x = self.drop_L(x)
+
+        x = F.relu(self.conv_L3(x))  # ==> (b_s, 16, 14, 14)
+        if check_layer_shapes:
+            print(x.shape)
+        x = F.max_pool2d(x, 2) # ==> (b_s, 16, 7, 7)
+        if check_layer_shapes:
+            print(x.shape)
+        x = self.batchnorm_L3(x)  # ==> same
+
+        x = x.view(-1, 784) # ==> (b_s, 16 * 7 * 7) == (b_s, 784)
+        if check_layer_shapes:
+            print(x.shape)
+
+        x = F.relu(self.dense_L1(x))  # ==> (b_s, 128)
+        if check_layer_shapes:
+            print(x.shape)
+        x = self.drop_L(x)
+
+        x = F.log_softmax(self.dense_L2(x))  # ==> (b_s, 10)
+        if check_layer_shapes:
+            print(x.shape)
+
+        return x
 
 
 def percent(float_num):
@@ -156,44 +227,6 @@ def show_metrics(markers, predictions):
     print()
     for name, value in zip(metric_name, metric_value):
         print(name + ' = ' + percent(value))
-
-
-class MyModel(torch.nn.Module):
-    def __init__(self, nn_type):
-        self.nn_type = nn_type
-        super(MyModel, self).__init__()
-        if nn_type == 'fcnn':
-            self.dense_L1 = torch.nn.Linear(train_fts.shape[1], 256)
-            self.dense_L2 = torch.nn.Linear(256, 256)
-            self.dense_L3 = torch.nn.Linear(256, 64)
-            self.dense_L4 = torch.nn.Linear(64, 32)
-            self.dense_L5 = torch.nn.Linear(32, n_classes)
-        if nn_type == 'cnn':
-            self.conv_L1 = torch.nn.Conv2d(3, 32, kernel_size=3, padding=1)
-            self.conv_L2 = torch.nn.Conv2d(32, 32, kernel_size=3, padding=1)
-            self.dense_L1 = torch.nn.Linear(32 * 21 * 21, 64)
-            self.dense_L2 = torch.nn.Linear(64, 32)
-            self.dense_L3 = torch.nn.Linear(32, n_classes)
-
-    def forward(self, input):
-        if self.nn_type == 'fcnn':
-            hidden_layer = F.relu(self.dense_L1(input))
-            hidden_layer = F.relu(self.dense_L2(hidden_layer))
-            hidden_layer = F.relu(self.dense_L3(hidden_layer))
-            hidden_layer = F.relu(self.dense_L4(hidden_layer))
-            output = self.dense_L5(hidden_layer)
-
-        if self.nn_type == 'cnn':
-            hidden_layer = F.max_pool2d(F.relu(self.conv_L1(input)), 2)
-            hidden_layer = F.max_pool2d(F.relu(self.conv_L2(hidden_layer)), 2)
-            hidden_layer = hidden_layer.view(-1, 32 * 21 * 21)
-            hidden_layer = F.relu(self.dense_L1(hidden_layer))
-            hidden_layer = F.relu(self.dense_L2(hidden_layer))
-            output = self.dense_L3(hidden_layer)
-
-        output = F.softmax(output)
-        # output = F.log_softmax(output)
-        return output
 
 
 def train_validate_torch(model, n_epochs, train_loader, val_loader):
@@ -326,7 +359,13 @@ def data_loader():
     batch_size = 32
     # Transformations for train- and testset
     transform_train = albu.Compose([
-        albu.RandomRotate90(always_apply=True),
+        albu.Rotate(limit=(90, 90), always_apply=True),
+        albu.CoarseDropout(max_holes=8, max_height=3, max_width=3,
+                           min_holes=1, min_height=1, min_width=1,
+                           fill_value=255, p=0.9),
+        albu.CoarseDropout(max_holes=8, max_height=3, max_width=3,
+                           min_holes=1, min_height=1, min_width=1,
+                           fill_value=0, p=0.9),
         albu.Normalize(mean=0.5, std=0.5, always_apply=True),
         albu.pytorch.ToTensorV2(always_apply=True)
     ])
@@ -334,19 +373,100 @@ def data_loader():
         albu.Normalize(mean=0.5, std=0.5, always_apply=True),
         albu.pytorch.ToTensorV2(always_apply=True)
     ])
-    # To rotate the pics by the same angle
-    random.seed(8)
+
+
+    # transform_train = transforms.Compose([transforms.ToTensor()])
+    # transform_test = transforms.Compose([transforms.ToTensor()])
+
+
+    # Fixate randomization
+    random.seed(0)
+    torch.manual_seed(0)
 
     # Initialise dataset
-    trainset = torchvision.datasets.mnist.MNIST(root='./data', train=True, download=True, transform=transform_train)
-    trainset, valset = torch.utils.data.random_split(trainset, [58000, 2000])
-    testset = torchvision.datasets.mnist.MNIST(root='./data', train=False, download=True, transform=transform_test)
+    global trainset, valset, testset
+    trainset = torchvision.datasets.mnist.MNIST(root='./data', train=True, download=True, transform=transform_train) # 60000
+    trainset, valset, _ = torch.utils.data.random_split(trainset, [2000, 200, 57800]) # 58000, 2000
+    testset = torchvision.datasets.mnist.MNIST(root='./data', train=False, download=True, transform=transform_test) # 10000
+    testset, _ = torch.utils.data.random_split(testset, [200, 9800])
 
+    # Create loaders
+    global train_loader, val_loader, test_loader
     train_loader = DataLoader(trainset, batch_size, shuffle=True, num_workers=1)
     val_loader = DataLoader(valset, len(valset), shuffle=True, num_workers=1)
     test_loader = DataLoader(testset, batch_size, shuffle=False, num_workers=1)
 
 
+def create_model():
+    global model
+    # Model, criterion, optimizer, epochs number
+    model = SimpleCNN().to(device)
+    criterion = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters())
+    n_epochs = 30
+
+    # Iterate through epochs
+    for epoch in range(n_epochs):
+        print('Epoch ' + str(epoch + 1) + '/' + str(n_epochs) + ':')
+
+        ''' Train '''
+        model.train(True)
+        total_loss = 0
+        batch_cnt = 0
+
+        # Iterate through batches
+        for data in train_loader:
+            # Separate features and labels
+            x_train, y_train = data
+            # Wrap in torch Variables
+            x_train, y_train = torch.autograd.Variable(x_train), torch.autograd.Variable(y_train)
+
+            # Get predictions
+            predictions = model(x_train)
+
+            # Loss function value
+            loss = criterion(predictions, y_train)
+            # Update total_loss and batch_cnt
+            total_loss += loss.item()
+            batch_cnt += 1
+
+            # Zero out parameter gradients
+            optimizer.zero_grad()
+            # Backward
+            loss.backward()
+            # Update weights
+            optimizer.step()
+
+        print('Train loss = ' + str(total_loss / batch_cnt))
+
+        ''' Validation '''
+        total_loss = 0
+        batch_cnt = 0
+        model.train(False)
+
+        # Iterate through batches
+        for data in val_loader:
+            # Separate features and labels
+            x_val, y_val = data
+            # Wrap in torch Variables
+            x_val, y_val = torch.autograd.Variable(x_val), torch.autograd.Variable(y_val)
+
+            # Get predictions
+            predictions = model(x_val)
+
+            # Loss function value
+            loss = criterion(predictions, y_val)
+            # Update total_loss and batch_cnt
+            total_loss += loss.item()
+            batch_cnt += 1
+
+            # Zero out parameter gradients
+            optimizer.zero_grad()
+
+        print('Validation loss = ' + str(total_loss / batch_cnt))
+
+
 if __name__ == '__main__':
     data_loader()
+    create_model()
     pass
