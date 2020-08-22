@@ -6,9 +6,6 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 
-import cv2
-from PIL import Image
-
 
 # Datasets, dataloaders, model
 trainset, valset, testset = None, None, None
@@ -20,27 +17,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 n_classes = 10
 n_channels = 1
 # Human friendly class names
-HFCNames = ["Bird", "Dog", "Wolf", "Meerkat", "Bug", "Cannon", "Box", "Ship", "Lock", "Garbage truck", "Acrobat",
-            "mp3 player", "Woman", "Rocket", "Strange scarf", "Coral"]
-# Indexes of classes
-ClassIdx = {
-    "dataset\\n01855672": 0,
-    "dataset\\n02091244": 1,
-    "dataset\\n02114548": 2,
-    "dataset\\n02138441": 3,
-    "dataset\\n02174001": 4,
-    "dataset\\n02950826": 5,
-    "dataset\\n02971356": 6,
-    "dataset\\n02981792": 7,
-    "dataset\\n03075370": 8,
-    "dataset\\n03417042": 9,
-    "dataset\\n03535780": 10,
-    "dataset\\n03584254": 11,
-    "dataset\\n03770439": 12,
-    "dataset\\n03773504": 13,
-    "dataset\\n03980874": 14,
-    "dataset\\n09256479": 15
-}
+HFCNames = ["Zero (0)", "One (1)", "Two (2)", "Three (3)", "Four (4)",
+            "Five (5)", "Six (6)", "Seven (7)", "Eight (8)", "Nine (9)"]
 
 
 class SimpleCNN(torch.nn.Module):
@@ -102,7 +80,7 @@ class SimpleCNN(torch.nn.Module):
             print(x.shape)
         x = self.drop_L(x)
 
-        x = F.log_softmax(self.dense_L2(x))  # ==> (b_s, 10)
+        x = F.log_softmax(self.dense_L2(x), dim=1)  # ==> (b_s, 10)
         if check_layer_shapes:
             print(x.shape)
 
@@ -227,130 +205,14 @@ def show_metrics(markers, predictions):
         print(name + ' = ' + percent(value))
 
 
-def train_validate_torch(model, n_epochs, train_loader, val_loader):
-    # Loss function, optimizer
-    criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters())
-
-    # Iterate epochs
-    for epoch in range(n_epochs):
-        print('Epoch ' + str(epoch + 1) + '/' + str(n_epochs) + ':')
-
-        ''' Train '''
-        model.train(True)
-        total_loss = 0
-        batch_cnt = 0
-
-        # Iterate batches
-        for data in train_loader:
-            # Separate features and labels
-            x_train, y_train = data
-            # Wrap in torch Variables; convert to float to calculate loss function
-            x_train, y_train = torch.autograd.Variable(x_train), torch.autograd.Variable(y_train)
-
-            # x_train, y_train = x_train.type(torch.FloatTensor), y_train.type(torch.LongTensor)
-
-            # Get predictions
-            predictions = model(x_train)
-
-            # predictions = predictions.type(torch.FloatTensor)
-
-            # Loss function value
-            loss = criterion(predictions, y_train)
-            # Update total_loss and batch_cnt
-            total_loss += loss.item()
-            batch_cnt += 1
-
-            # Zero out parameter gradients
-            optimizer.zero_grad()
-            # Backward
-            loss.backward()
-            # Update weights
-            optimizer.step()
-
-        print('Train loss = ' + str(total_loss / batch_cnt))
-
-        ''' Validation '''
-        total_loss = 0
-        batch_cnt = 0
-        model.train(False)
-
-        for data in val_loader:
-            # Separate features and labels
-            x_val, y_val = data
-            # Wrap in torch Variables; convert to float to calculate loss function
-            x_val, y_val = torch.autograd.Variable(x_val), torch.autograd.Variable(y_val)
-
-            # x_val, y_val = x_train.type(torch.FloatTensor), y_train.type(torch.LongTensor)
-
-            # Get predictions
-            predictions = model(x_val)
-
-            # predictions = predictions.type(torch.FloatTensor)
-
-            # Loss function value
-            loss = criterion(predictions, y_val)
-            # Update total_loss and batch_cnt
-            total_loss += loss.item()
-            batch_cnt += 1
-
-            # Zero out parameter gradients
-            optimizer.zero_grad()
-
-        print('Validation loss = ' + str(total_loss / batch_cnt))
-
-    return model
+def save_model(filename):
+    torch.save(model.state_dict(), filename + '.pth')
 
 
-def test_torch(model, test_loader):
-    model.eval()
-
-    all_predicts = []
-
-    with torch.no_grad():
-        for data in test_loader:
-            # Separate features and labels
-            x_test, y_test = data
-            # Predict
-            predictions = model(x_test)
-            predictions = np.argmax(predictions, 1)
-            all_predicts.extend(predictions.numpy())
-
-    show_metrics(test_markers, all_predicts)
-
-
-def torch_main(nn_type, model_source):
-    # Epochs numbers, batch size
-    n_epochs = 30
-    batch_size = 32
-
-    # Data Loaders
-    train_dataset = MyDataset(nn_type, 'train')
-    train_loader = torch_DataLoader(train_dataset, batch_size, shuffle=False, num_workers=1)
-    val_dataset = MyDataset(nn_type, 'val')
-    val_loader = torch_DataLoader(val_dataset, batch_size, shuffle=False, num_workers=1)
-    test_dataset = MyDataset(nn_type, 'test')
-    test_loader = torch_DataLoader(test_dataset, batch_size, shuffle=False, num_workers=1)
-
-    if model_source == 'create':
-        # Create model
-        model = MyModel(nn_type)
-
-        # Train and validate
-        model = train_validate_torch(model, n_epochs, train_loader, val_loader)
-
-        # Save model
-        save_model(model, nn_type)
-
-    # Load model
-    model = load_model(nn_type, nn_type)
-
-    # Test
-    test_torch(model, test_loader)
-
-    # Infer
-    # infer_torch(model, 'file', testset[0])
-    infer_torch(model, 'folder', 'dataset\\n01855672')
+def load_model(filename):
+    global model
+    create_model()
+    model.load_state_dict(torch.load(filename + '.pth'))
 
 
 def data_loader():
@@ -407,8 +269,11 @@ def data_loader():
 
 def create_model():
     global model
-    # Model, criterion, optimizer, epochs number
     model = SimpleCNN().to(device)
+
+
+def train():
+    # Criterion, optimizer, epochs number
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters())
     n_epochs = 30
@@ -474,6 +339,38 @@ def create_model():
         print('Validation loss = ' + str(total_loss / batch_cnt))
 
 
+def test():
+    global model
+    model.eval()
+
+    # Get predictions
+    test_predicts = []
+    with torch.no_grad():
+        for data in test_loader:
+            # Separate features and labels
+            x_test, y_test = data
+            # Predict
+            predictions = model(x_test)
+            predictions = np.argmax(predictions, 1)
+            test_predicts.extend(predictions.numpy())
+
+    # Get markers
+    test_markers = np.zeros(len(testset), dtype=np.uint8)
+    for i, (_, marker) in enumerate(testset):
+        test_markers[i] = marker
+
+    # Show metrics
+    show_metrics(test_markers, test_predicts)
+
+
 if __name__ == '__main__':
+    src = 'load' # 'load' or 'create'
+
     data_loader()
-    create_model()
+    if src == 'create':
+        create_model()
+        train()
+        save_model('cnn')
+    else:
+        load_model('cnn')
+    test()
