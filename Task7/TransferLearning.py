@@ -40,7 +40,7 @@ class SimpleCNN(torch.nn.Module):
         self.dense_L1 = torch.nn.Linear(784, 128) # ==> (b_s, 128)
         self.dense_L2 = torch.nn.Linear(128, 10)  # ==> (b_s, 10)
 
-        self.drop_L = torch.nn.Dropout(0.5) # 0.5
+        self.drop_L = torch.nn.Dropout(0.4)
 
     def forward(self, x):
         check_layer_shapes = False
@@ -364,7 +364,7 @@ def test():
 
 
 if __name__ == '__main__':
-    src = 'load' # 'load' or 'create'
+    src = 'create' # 'load' or 'create'
 
     data_loader()
     if src == 'create':
