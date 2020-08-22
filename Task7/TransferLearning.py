@@ -17,8 +17,14 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 n_classes = 10
 n_channels = 1
 # Human friendly class names
-HFCNames = ["Zero (0)", "One (1)", "Two (2)", "Three (3)", "Four (4)",
-            "Five (5)", "Six (6)", "Seven (7)", "Eight (8)", "Nine (9)"]
+HFCNames = ("Zero (0)", "One (1)", "Two (2)", "Three (3)", "Four (4)",
+            "Five (5)", "Six (6)", "Seven (7)", "Eight (8)", "Nine (9)")
+# Modes handles
+ModeHandles = ('***************** “rotated” CNN on a rotated test dataset ******************',
+               '****************** “rotated” CNN on a normal test dataset ******************',
+               '**************** retrained CNN a) on a normal test dataset *****************',
+               '**************** retrained CNN b) on a normal test dataset *****************',
+               '**************** retrained CNN c) on a normal test dataset *****************')
 
 
 class SimpleCNN(torch.nn.Module):
@@ -215,7 +221,7 @@ def load_model(filename):
     model.load_state_dict(torch.load(filename + '.pth'))
 
 
-def data_loader():
+def data_loader(rotated):
     batch_size = 32
     # Transformations for train- and testset
     # transform_train = albu.Compose([
@@ -235,7 +241,7 @@ def data_loader():
     # ])
 
     transform_train = transforms.Compose(
-        [transforms.RandomRotation((90, 90)),
+        [transforms.RandomRotation((90, 90) if rotated else (0, 0)),
         transforms.RandomPerspective(p=0.9, distortion_scale=0.1),
         transforms.ToTensor(),
         transforms.Normalize(mean=0.5, std=0.5)] +
@@ -243,7 +249,7 @@ def data_loader():
         [transforms.RandomErasing(p=0.7, scale=(0.002, 0.002), ratio=(1, 1), value=1)] * 10
     )
     transform_test = transforms.Compose([
-        transforms.RandomRotation((90, 90)),
+        transforms.RandomRotation((90, 90) if rotated else (0, 0)),
         transforms.ToTensor(),
         transforms.Normalize(mean=0.5, std=0.5)
     ])
@@ -255,7 +261,6 @@ def data_loader():
     # Initialise dataset
     global trainset, valset, testset
     trainset = torchvision.datasets.mnist.MNIST(root='./data', train=True, download=True, transform=transform_train) # 60000
-
     trainset, valset, _ = torch.utils.data.random_split(trainset, [2000, 200, 57800]) # 58000, 2000
     testset = torchvision.datasets.mnist.MNIST(root='./data', train=False, download=True, transform=transform_test) # 10000
     testset, _ = torch.utils.data.random_split(testset, [200, 9800])
@@ -363,14 +368,29 @@ def test():
     show_metrics(test_markers, test_predicts)
 
 
-if __name__ == '__main__':
-    src = 'create' # 'load' or 'create'
+def print_handle(ind):
+    if ind > 0:
+        print('\n\n')
+    print('****************************************************************************')
+    print(ModeHandles[ind])
+    print('****************************************************************************')
 
-    data_loader()
-    if src == 'create':
+
+if __name__ == '__main__':
+    src = ('load', 'load') # 'load' or 'create'
+
+    ''' “rotated” CNN on a rotated test dataset '''
+    print_handle(0)
+    data_loader(rotated=True)
+    if src[0] == 'create':
         create_model()
         train()
-        save_model('cnn')
+        save_model('rotated_cnn')
     else:
-        load_model('cnn')
+        load_model('rotated_cnn')
+    test()
+
+    ''' “rotated” CNN on a normal test dataset '''
+    print_handle(1)
+    data_loader(rotated=False)
     test()
