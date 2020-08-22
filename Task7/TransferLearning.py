@@ -40,7 +40,7 @@ class SimpleCNN(torch.nn.Module):
         self.dense_L1 = torch.nn.Linear(784, 128) # ==> (b_s, 128)
         self.dense_L2 = torch.nn.Linear(128, 10)  # ==> (b_s, 10)
 
-        self.drop_L = torch.nn.Dropout(0.7)
+        self.drop_L = torch.nn.Dropout(0.5) # 0.5
 
     def forward(self, x):
         check_layer_shapes = False
@@ -69,7 +69,7 @@ class SimpleCNN(torch.nn.Module):
         x = F.max_pool2d(x, 2) # ==> (b_s, 16, 7, 7)
         if check_layer_shapes:
             print(x.shape)
-        x = self.batchnorm_L3(x)  # ==> same
+        x = self.batchnorm_L3(x)
 
         x = x.view(-1, 784) # ==> (b_s, 16 * 7 * 7) == (b_s, 784)
         if check_layer_shapes:
