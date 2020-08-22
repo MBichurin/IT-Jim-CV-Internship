@@ -377,7 +377,7 @@ def print_handle(ind):
 
 
 if __name__ == '__main__':
-    src = ('load', 'load') # 'load' or 'create'
+    src = ('load', 'load', 'load', 'load') # 'load' or 'create'
 
     ''' “rotated” CNN on a rotated test dataset '''
     print_handle(0)
@@ -393,4 +393,20 @@ if __name__ == '__main__':
     ''' “rotated” CNN on a normal test dataset '''
     print_handle(1)
     data_loader(rotated=False)
+    test()
+
+    ''' retrained CNN a) on a normal test dataset '''
+    print_handle(2)
+
+    ''' retrained CNN b) on a normal test dataset '''
+    print_handle(3)
+
+    ''' retrained CNN c) on a normal test dataset '''
+    print_handle(4)
+    if src[3] == 'create':
+        load_model('rotated_cnn')
+        train()
+        save_model('retrained_c')
+    else:
+        load_model('retrained_c')
     test()
