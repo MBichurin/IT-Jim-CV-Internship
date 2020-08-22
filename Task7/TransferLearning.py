@@ -236,7 +236,7 @@ def data_loader():
 
     transform_train = transforms.Compose(
         [transforms.RandomRotation((90, 90)),
-        transforms.RandomPerspective(p=0.9),
+        transforms.RandomPerspective(p=0.9, distortion_scale=0.1),
         transforms.ToTensor(),
         transforms.Normalize(mean=0.5, std=0.5)] +
         [transforms.RandomErasing(p=0.7, scale=(0.002, 0.002), ratio=(1, 1), value=0)] * 10 +
