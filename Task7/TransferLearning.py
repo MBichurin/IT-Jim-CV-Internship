@@ -5,11 +5,6 @@ import torchvision
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
-import albumentations as albu
-from albumentations import pytorch
-
-import cv2
-import matplotlib.pyplot as plt
 
 
 # Datasets, dataloaders, model
@@ -358,26 +353,32 @@ def torch_main(nn_type, model_source):
 def data_loader():
     batch_size = 32
     # Transformations for train- and testset
-    transform_train = albu.Compose([
-        albu.Rotate(limit=(90, 90), always_apply=True),
-        albu.CoarseDropout(max_holes=8, max_height=3, max_width=3,
-                           min_holes=1, min_height=1, min_width=1,
-                           fill_value=255, p=0.9),
-        albu.CoarseDropout(max_holes=8, max_height=3, max_width=3,
-                           min_holes=1, min_height=1, min_width=1,
-                           fill_value=0, p=0.9),
-        albu.Normalize(mean=0.5, std=0.5, always_apply=True),
-        albu.pytorch.ToTensorV2(always_apply=True)
+    # transform_train = albu.Compose([
+    #     albu.Rotate(limit=(90, 90), always_apply=True),
+    #     albu.CoarseDropout(max_holes=8, max_height=3, max_width=3,
+    #                        min_holes=1, min_height=1, min_width=1,
+    #                        fill_value=255, p=0.9),
+    #     albu.CoarseDropout(max_holes=8, max_height=3, max_width=3,
+    #                        min_holes=1, min_height=1, min_width=1,
+    #                        fill_value=0, p=0.9),
+    #     albu.Normalize(mean=0.5, std=0.5, always_apply=True),
+    #     albu.pytorch.ToTensorV2(always_apply=True)
+    # ])
+    # transform_test = albu.Compose([
+    #     albu.Normalize(mean=0.5, std=0.5, always_apply=True),
+    #     albu.pytorch.ToTensorV2(always_apply=True)
+    # ])
+
+    transform_train = transforms.Compose([
+        transforms.RandomRotation((90, 90)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=0.5, std=0.5)
     ])
-    transform_test = albu.Compose([
-        albu.Normalize(mean=0.5, std=0.5, always_apply=True),
-        albu.pytorch.ToTensorV2(always_apply=True)
+    transform_test = transforms.Compose([
+        transforms.RandomRotation((90, 90)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=0.5, std=0.5)
     ])
-
-
-    # transform_train = transforms.Compose([transforms.ToTensor()])
-    # transform_test = transforms.Compose([transforms.ToTensor()])
-
 
     # Fixate randomization
     random.seed(0)
@@ -386,6 +387,7 @@ def data_loader():
     # Initialise dataset
     global trainset, valset, testset
     trainset = torchvision.datasets.mnist.MNIST(root='./data', train=True, download=True, transform=transform_train) # 60000
+
     trainset, valset, _ = torch.utils.data.random_split(trainset, [2000, 200, 57800]) # 58000, 2000
     testset = torchvision.datasets.mnist.MNIST(root='./data', train=False, download=True, transform=transform_test) # 10000
     testset, _ = torch.utils.data.random_split(testset, [200, 9800])
@@ -469,4 +471,3 @@ def create_model():
 if __name__ == '__main__':
     data_loader()
     create_model()
-    pass
