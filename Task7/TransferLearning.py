@@ -6,6 +6,9 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 
+import cv2
+from PIL import Image
+
 
 # Datasets, dataloaders, model
 trainset, valset, testset = None, None, None
@@ -369,11 +372,14 @@ def data_loader():
     #     albu.pytorch.ToTensorV2(always_apply=True)
     # ])
 
-    transform_train = transforms.Compose([
-        transforms.RandomRotation((90, 90)),
+    transform_train = transforms.Compose(
+        [transforms.RandomRotation((90, 90)),
+        transforms.RandomPerspective(p=0.9),
         transforms.ToTensor(),
-        transforms.Normalize(mean=0.5, std=0.5)
-    ])
+        transforms.Normalize(mean=0.5, std=0.5)] +
+        [transforms.RandomErasing(p=0.7, scale=(0.002, 0.002), ratio=(1, 1), value=0)] * 10 +
+        [transforms.RandomErasing(p=0.7, scale=(0.002, 0.002), ratio=(1, 1), value=1)] * 10
+    )
     transform_test = transforms.Compose([
         transforms.RandomRotation((90, 90)),
         transforms.ToTensor(),
