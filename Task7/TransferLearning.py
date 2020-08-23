@@ -375,7 +375,7 @@ def print_handle(ind):
 
 
 if __name__ == '__main__':
-    src = ('create', 'load', 'load', 'load') # 'load' or 'create'
+    src = ('load', 'load', 'load', 'load') # 'load' or 'create'
 
     ''' “rotated” CNN on a rotated test dataset '''
     print_handle(0)
@@ -388,23 +388,10 @@ if __name__ == '__main__':
         load_model('rotated_cnn')
     test()
 
-    quit(0)
-
     ''' “rotated” CNN on a normal test dataset '''
     print_handle(1)
     data_loader(rotated=False)
     test()
-
-
-    # ''' Freeze the hole model '''
-    # load_model('rotated_cnn')
-    # for child in model.children():
-    #     for param in child.parameters():
-    #         param.requires_grad = False
-    # train()
-    # test()
-    #
-    # quit(0)
 
     ''' retrained CNN a) on a normal test dataset '''
     print_handle(2)
@@ -415,17 +402,11 @@ if __name__ == '__main__':
         cnt = 0
         for child in model.children():
             cnt += 1
-
-            if cnt != 8:
-                print(child, 'False')
-            else:
-                print(child, 'True')
+            if cnt == 8:
+                break
 
             for param in child.parameters():
-                if cnt != 8:
-                    param.requires_grad = False
-                else:
-                    param.requires_grad = True
+                param.requires_grad = False
 
         train()
         save_model('retrained_a')
