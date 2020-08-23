@@ -25,6 +25,9 @@ ModeHandles = ('***************** “rotated” CNN on a rotated test dataset **
                '**************** retrained CNN a) on a normal test dataset *****************',
                '**************** retrained CNN b) on a normal test dataset *****************',
                '**************** retrained CNN c) on a normal test dataset *****************')
+# Fixate randomization
+random.seed(0)
+torch.manual_seed(0)
 
 
 class SimpleCNN(torch.nn.Module):
@@ -49,46 +52,26 @@ class SimpleCNN(torch.nn.Module):
         self.drop_L = torch.nn.Dropout(0.4)
 
     def forward(self, x):
-        check_layer_shapes = False
-
         # (batch_size, n_channels, 28, 28)
-        if check_layer_shapes:
-            print(x.shape)
         x = F.relu(self.conv_L1(x)) # ==> (b_s, 64, 28, 28)
-        if check_layer_shapes:
-            print(x.shape)
         x = F.max_pool2d(x, 2) # ==> (b_s, 64, 14, 14)
-        if check_layer_shapes:
-            print(x.shape)
         x = self.batchnorm_L1(x)
         x = self.drop_L(x)
 
         x = F.relu(self.conv_L2(x))  # ==> (b_s, 32, 14, 14)
-        if check_layer_shapes:
-            print(x.shape)
         x = self.batchnorm_L2(x)
         x = self.drop_L(x)
 
         x = F.relu(self.conv_L3(x))  # ==> (b_s, 16, 14, 14)
-        if check_layer_shapes:
-            print(x.shape)
         x = F.max_pool2d(x, 2) # ==> (b_s, 16, 7, 7)
-        if check_layer_shapes:
-            print(x.shape)
         x = self.batchnorm_L3(x)
 
         x = x.view(-1, 784) # ==> (b_s, 16 * 7 * 7) == (b_s, 784)
-        if check_layer_shapes:
-            print(x.shape)
 
         x = F.relu(self.dense_L1(x))  # ==> (b_s, 128)
-        if check_layer_shapes:
-            print(x.shape)
         x = self.drop_L(x)
 
         x = F.log_softmax(self.dense_L2(x), dim=1)  # ==> (b_s, 10)
-        if check_layer_shapes:
-            print(x.shape)
 
         return x
 
@@ -254,15 +237,11 @@ def data_loader(rotated):
         transforms.Normalize(mean=0.5, std=0.5)
     ])
 
-    # Fixate randomization
-    random.seed(0)
-    torch.manual_seed(0)
-
     # Initialise dataset
     global trainset, valset, testset
-    trainset = torchvision.datasets.mnist.MNIST(root='./data', train=True, download=True, transform=transform_train) # 60000
-    trainset, valset, _ = torch.utils.data.random_split(trainset, [2000, 200, 57800]) # 58000, 2000
-    testset = torchvision.datasets.mnist.MNIST(root='./data', train=False, download=True, transform=transform_test) # 10000
+    trainset = torchvision.datasets.mnist.MNIST(root='./data', train=True, download=True, transform=transform_train)
+    trainset, valset, _ = torch.utils.data.random_split(trainset, [2000, 200, 57800])
+    testset = torchvision.datasets.mnist.MNIST(root='./data', train=False, download=True, transform=transform_test)
     testset, _ = torch.utils.data.random_split(testset, [200, 9800])
 
     # Create loaders
@@ -380,12 +359,14 @@ if __name__ == '__main__':
     ''' “rotated” CNN on a rotated test dataset '''
     print_handle(0)
     data_loader(rotated=True)
+
     if src[0] == 'create':
         create_model()
         train()
         save_model('rotated_cnn')
     else:
         load_model('rotated_cnn')
+
     test()
 
     ''' “rotated” CNN on a normal test dataset '''
