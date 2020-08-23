@@ -296,14 +296,13 @@ def train():
         for data in train_loader:
             # Separate features and labels
             x_train, y_train = data
-            # Wrap in torch Variables
-            x_train, y_train = torch.autograd.Variable(x_train), torch.autograd.Variable(y_train)
 
             # Get predictions
-            predictions = model(x_train)
+            predictions = model(x_train.to(device))
 
             # Loss function value
-            loss = criterion(predictions, y_train)
+            loss = criterion(predictions, y_train.to(device))
+            loss = torch.autograd.Variable(loss, requires_grad=True)
             # Update total_loss and batch_cnt
             total_loss += loss.item()
             batch_cnt += 1
@@ -317,6 +316,12 @@ def train():
 
         print('Train loss = ' + str(total_loss / batch_cnt))
 
+
+        for child in model.children():
+            for param in child.parameters():
+                param.requires_grad = False
+
+
         ''' Validation '''
         total_loss = 0
         batch_cnt = 0
@@ -326,14 +331,13 @@ def train():
         for data in val_loader:
             # Separate features and labels
             x_val, y_val = data
-            # Wrap in torch Variables
-            x_val, y_val = torch.autograd.Variable(x_val), torch.autograd.Variable(y_val)
 
             # Get predictions
-            predictions = model(x_val)
+            predictions = model(x_val.to(device))
 
             # Loss function value
-            loss = criterion(predictions, y_val)
+            loss = criterion(predictions, y_val.to(device))
+            loss = torch.autograd.Variable(loss, requires_grad=True)
             # Update total_loss and batch_cnt
             total_loss += loss.item()
             batch_cnt += 1
@@ -377,13 +381,18 @@ def print_handle(ind):
 
 
 if __name__ == '__main__':
-    src = ('load', 'load', 'load', 'load') # 'load' or 'create'
+    src = ('create', 'create', 'create', 'load') # 'load' or 'create'
 
     ''' “rotated” CNN on a rotated test dataset '''
     print_handle(0)
     data_loader(rotated=True)
     if src[0] == 'create':
         create_model()
+
+        for child in model.children():
+            for param in child.parameters():
+                param.requires_grad = True
+
         train()
         save_model('rotated_cnn')
     else:
@@ -395,18 +404,76 @@ if __name__ == '__main__':
     data_loader(rotated=False)
     test()
 
+
+
+    ''' Freeze the hole model '''
+    load_model('rotated_cnn')
+    for child in model.children():
+        for param in child.parameters():
+            param.requires_grad = False
+    train()
+    test()
+
+    quit(0)
+
     ''' retrained CNN a) on a normal test dataset '''
     print_handle(2)
+
+    if src[1] == 'create':
+        load_model('rotated_cnn')
+
+        cnt = 0
+        for child in model.children():
+            cnt += 1
+
+            if cnt != 8:
+                print(child, 'False')
+            else:
+                print(child, 'True')
+
+            for param in child.parameters():
+                if cnt != 8:
+                    param.requires_grad = False
+                else:
+                    param.requires_grad = True
+
+        train()
+        save_model('retrained_a')
+    else:
+        load_model('retrained_a')
+
+    test()
 
     ''' retrained CNN b) on a normal test dataset '''
     print_handle(3)
 
+    if src[2] == 'create':
+        load_model('rotated_cnn')
+
+        cnt = 0
+        for child in model.children():
+            cnt += 1
+            if cnt == 7:
+                break
+
+            for param in child.parameters():
+                param.requires_grad = False
+
+        train()
+        save_model('retrained_b')
+    else:
+        load_model('retrained_b')
+
+    test()
+
     ''' retrained CNN c) on a normal test dataset '''
     print_handle(4)
+
     if src[3] == 'create':
         load_model('rotated_cnn')
         train()
         save_model('retrained_c')
     else:
         load_model('retrained_c')
+
     test()
