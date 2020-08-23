@@ -302,7 +302,7 @@ def train():
 
             # Loss function value
             loss = criterion(predictions, y_train.to(device))
-            loss = torch.autograd.Variable(loss, requires_grad=True)
+            loss.requires_grad_(True)
             # Update total_loss and batch_cnt
             total_loss += loss.item()
             batch_cnt += 1
@@ -315,11 +315,6 @@ def train():
             optimizer.step()
 
         print('Train loss = ' + str(total_loss / batch_cnt))
-
-
-        for child in model.children():
-            for param in child.parameters():
-                param.requires_grad = False
 
 
         ''' Validation '''
@@ -337,7 +332,6 @@ def train():
 
             # Loss function value
             loss = criterion(predictions, y_val.to(device))
-            loss = torch.autograd.Variable(loss, requires_grad=True)
             # Update total_loss and batch_cnt
             total_loss += loss.item()
             batch_cnt += 1
@@ -381,23 +375,20 @@ def print_handle(ind):
 
 
 if __name__ == '__main__':
-    src = ('create', 'create', 'create', 'load') # 'load' or 'create'
+    src = ('create', 'load', 'load', 'load') # 'load' or 'create'
 
     ''' “rotated” CNN on a rotated test dataset '''
     print_handle(0)
     data_loader(rotated=True)
     if src[0] == 'create':
         create_model()
-
-        for child in model.children():
-            for param in child.parameters():
-                param.requires_grad = True
-
         train()
         save_model('rotated_cnn')
     else:
         load_model('rotated_cnn')
     test()
+
+    quit(0)
 
     ''' “rotated” CNN on a normal test dataset '''
     print_handle(1)
@@ -405,16 +396,15 @@ if __name__ == '__main__':
     test()
 
 
-
-    ''' Freeze the hole model '''
-    load_model('rotated_cnn')
-    for child in model.children():
-        for param in child.parameters():
-            param.requires_grad = False
-    train()
-    test()
-
-    quit(0)
+    # ''' Freeze the hole model '''
+    # load_model('rotated_cnn')
+    # for child in model.children():
+    #     for param in child.parameters():
+    #         param.requires_grad = False
+    # train()
+    # test()
+    #
+    # quit(0)
 
     ''' retrained CNN a) on a normal test dataset '''
     print_handle(2)
