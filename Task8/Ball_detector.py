@@ -22,16 +22,28 @@ batch_size = 32
 
 
 class MyDataset(Dataset):
-    def __init__(self, pics, masks):
-        self.pics = pics
-        self.masks = masks
-        self.len = len(pics)
+    def __init__(self, pics_names, masks_names, transform):
+        self.pics_names = pics_names
+        self.masks_names = masks_names
+        self.transform = transform
+        self.len = len(pics_names)
 
     def __len__(self):
         return self.len
 
     def __getitem__(self, item):
-        return self.pics[item], self.pics[item]
+        # Read an image
+        img = cv2.imread(self.pics_names[item])
+        # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        # Read a mask
+        mask = cv2.imread(self.masks_names[item])
+        mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY) / 255
+
+        # Transforms
+        transformed = self.transform(image=img, mask=mask)
+
+        return transformed['image'], transformed['mask']
 
 
 class FCN(torch.nn.Module):
@@ -80,29 +92,6 @@ class FCN(torch.nn.Module):
         return x
 
 
-def read_pics_and_masks(set_name, transform):
-    # Lists of names and of tensors
-    pics_names = glob.glob('dataset/' + set_name + '_set/*')
-    pics = []
-    masks_names = glob.glob('dataset/' + set_name + '_set_mask/*')
-    masks = []
-
-    for i, (pic_name, mask_name) in enumerate(zip(pics_names, masks_names)):
-        # Read an image
-        img = cv2.imread(pic_name)
-        # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-        # Read a mask
-        mask = cv2.imread(mask_name)
-        mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY) / 255
-
-        transformed = transform(image=img, mask=mask)
-        pics.extend(transformed['image'])
-        masks.extend(transformed['mask'])
-
-    return pics, masks
-
-
 def read_dataset():
     ''' Augmentations '''
     # Train augmentations
@@ -125,17 +114,20 @@ def read_dataset():
     ])
 
     # Read pictures and masks
-    train_pics, train_masks = read_pics_and_masks('train', transform_train)
-    val_pics, val_masks = read_pics_and_masks('val', transform_test)
-    test_pics, test_masks = read_pics_and_masks('test', transform_test)
+    train_pics_names = glob.glob('dataset/train_set/*')
+    train_masks_names = glob.glob('dataset/train_set_mask/*')
+    val_pics_names = glob.glob('dataset/val_set/*')
+    val_masks_names = glob.glob('dataset/val_set_mask/*')
+    test_pics_names = glob.glob('dataset/test_set/*')
+    test_masks_names = glob.glob('dataset/test_set_mask/*')
 
     # Initialize train-, val- and test-
     # -sets and -loaders
     global trainset, valset, testset, train_loader, val_loader, test_loader
 
-    trainset = MyDataset(train_pics, train_masks)
-    valset = MyDataset(val_pics, val_masks)
-    testset = MyDataset(test_pics, test_masks)
+    trainset = MyDataset(train_pics_names, train_masks_names, transform_train)
+    valset = MyDataset(val_pics_names, val_masks_names, transform_test)
+    testset = MyDataset(test_pics_names, test_masks_names, transform_test)
 
     train_loader = DataLoader(trainset, batch_size, shuffle=True, num_workers=1)
     val_loader = DataLoader(valset, batch_size, shuffle=False, num_workers=1)
