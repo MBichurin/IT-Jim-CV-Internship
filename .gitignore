@@ -1,6 +1,7 @@
 .idea/
 data/
 *.txt
+*.csv
 *.avi
 *.mp4
 *.zip
