@@ -1,4 +1,5 @@
 import numpy as np
+import csv
 import glob
 import random
 import cv2
@@ -19,28 +20,27 @@ train_loader, val_loader, test_loader = None, None, None
 model = None
 # Batch size, epochs number, classes number, channels number
 batch_size = 32
-n_epochs = 30
+n_epochs = 12
 n_classes = 2
 n_channels = 3
 
 
 class MyDataset(Dataset):
-    def __init__(self, pics_names, masks_names, transform):
-        self.pics_names = pics_names
-        self.masks_names = masks_names
+    def __init__(self, filenames, transform):
+        self.filenames = filenames
         self.transform = transform
-        self.len = len(pics_names)
+        self.len = len(filenames)
 
     def __len__(self):
         return self.len
 
     def __getitem__(self, item):
         # Read an image
-        img = cv2.imread(self.pics_names[item])
+        img = cv2.imread(self.filenames[item][0])
         # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
         # Read a mask
-        mask = cv2.imread(self.masks_names[item])
+        mask = cv2.imread(self.filenames[item][1])
         mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY) / 255
 
         # Transforms
@@ -52,37 +52,40 @@ class MyDataset(Dataset):
 class FCN(torch.nn.Module):
     def __init__(self):
         super(FCN, self).__init__()
-        # (batch_size, n_channels, 360, 640)
-        self.conv_L1 = torch.nn.Conv2d(n_channels, 64, kernel_size=3, padding=1) # ==> (b_s, 64, 360, 640)
+        # (batch_size, n_channels, h, w)
+        self.conv_L1 = torch.nn.Conv2d(n_channels, 1, kernel_size=3, padding=1) # ==> (b_s, 64, h, w)
         self.batchnorm_L1 = torch.nn.BatchNorm2d(64) # ==> same
 
-        self.conv_L2 = torch.nn.Conv2d(64, 32, kernel_size=3, padding=1) # ==> (b_s, 32, 360, 640)
+        self.conv_L2 = torch.nn.Conv2d(64, 32, kernel_size=3, padding=1) # ==> (b_s, 32, h, w)
         self.batchnorm_L2 = torch.nn.BatchNorm2d(32) # ==> same
 
-        self.conv_L3 = torch.nn.Conv2d(32, 16, kernel_size=3, padding=1) # ==> (b_s, 16, 360, 640)
+        self.conv_L3 = torch.nn.Conv2d(32, 16, kernel_size=3, padding=1) # ==> (b_s, 16, h, w)
         self.batchnorm_L3 = torch.nn.BatchNorm2d(16) # ==> same
 
-        self.conv_L4 = torch.nn.Conv2d(16, 1, kernel_size=3, padding=1) # ==> (b_s, 1, 360, 640)
+        self.conv_L4 = torch.nn.Conv2d(16, 1, kernel_size=3, padding=1) # ==> (b_s, 1, h, w)
 
         self.drop_L = torch.nn.Dropout(0.4)
 
     def forward(self, x):
-        # (batch_size, n_channels, 360, 640)
-        x = F.relu(self.conv_L1(x))  # ==> (b_s, 64, 360, 640)
-        x = self.batchnorm_L1(x)
-        x = self.drop_L(x)
+        # # (batch_size, n_channels, 360, 640)
+        # x = F.relu(self.conv_L1(x))  # ==> (b_s, 64, 360, 640)
+        # x = self.batchnorm_L1(x)
+        # x = self.drop_L(x)
+        #
+        # x = F.relu(self.conv_L2(x))  # ==> (b_s, 32, 360, 640)
+        # x = self.batchnorm_L2(x)
+        # x = self.drop_L(x)
+        #
+        # x = F.relu(self.conv_L3(x))  # ==> (b_s, 16, 360, 640)
+        # x = self.batchnorm_L3(x)
+        # x = self.drop_L(x)
+        #
+        # x = self.conv_L4(x)  # ==> (b_s, 1, 360, 640)
+        #
+        # # Get rid of channels dimension
+        # x = x.squeeze(dim=1)
 
-        x = F.relu(self.conv_L2(x))  # ==> (b_s, 32, 360, 640)
-        x = self.batchnorm_L2(x)
-        x = self.drop_L(x)
-
-        x = F.relu(self.conv_L3(x))  # ==> (b_s, 16, 360, 640)
-        x = self.batchnorm_L3(x)
-        x = self.drop_L(x)
-
-        x = self.conv_L4(x)  # ==> (b_s, 1, 360, 640)
-
-        # Get rid of channels dimension
+        x = self.conv_L1(x)
         x = x.squeeze(dim=1)
 
         return x
@@ -231,6 +234,7 @@ def read_dataset():
         albu.CoarseDropout(max_holes=100, max_height=5, max_width=5,
                            min_holes=10, min_height=1, min_width=1,
                            fill_value=0, p=0.9),
+        albu.Resize(180, 320),
         albu.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.7),
         albu.Normalize(mean=0.5, std=0.5, always_apply=True),
         ToTensorV2(always_apply=True)
@@ -238,47 +242,52 @@ def read_dataset():
 
     # Test augmentations
     transform_test = albu.Compose([
+        albu.Resize(180, 320),
         albu.Normalize(mean=0.5, std=0.5, always_apply=True),
         ToTensorV2(always_apply=True)
     ])
 
     # Datasets sizes
     # sets_sizes = [11943, 3001, 2309]
-    sets_sizes = [2000, 200, 200]
+    sets_sizes = [1000, 100, 200]
 
-    # Read pictures and masks
-    train_pics_names = glob.glob('dataset/train_set/*')
-    train_masks_names = glob.glob('dataset/train_set_mask/*')
+    # Read trainset names
+    with open('dataset\\train_set.csv', newline='\n') as file:
+        train_names = list(csv.reader(file, delimiter=','))
+    # Shuffle
+    random.shuffle(train_names)
+    # Reduce the size of trainset
+    train_names = train_names[:sets_sizes[0]]
 
-    train_stuff = list(zip(train_pics_names, train_masks_names))
-    random.shuffle(train_stuff)
+    # Read valset names
+    with open('dataset\\val_set.csv', newline='\n') as file:
+        val_names = list(csv.reader(file, delimiter=','))
+    # Shuffle
+    random.shuffle(val_names)
+    # Reduce the size of valset
+    val_names = val_names[:sets_sizes[1]]
 
-    for i, (pic, mask) in enumerate(train_stuff):
-        train_pics_names[i], train_masks_names[i] = pic, mask
-
-    train_pics_names, train_masks_names = train_pics_names[:sets_sizes[0]], train_masks_names[:sets_sizes[0]]
-
-    val_pics_names = glob.glob('dataset/val_set/*')
-    val_masks_names = glob.glob('dataset/val_set_mask/*')
-    val_pics_names, val_masks_names = val_pics_names[:sets_sizes[1]], val_masks_names[:sets_sizes[1]]
-
-    test_pics_names = glob.glob('dataset/test_set/*')
-    test_masks_names = glob.glob('dataset/test_set_mask/*')
-    test_pics_names, test_masks_names = test_pics_names[:sets_sizes[2]], test_masks_names[:sets_sizes[2]]
+    # Read testset names
+    with open('dataset\\test_set.csv', newline='\n') as file:
+        test_names = list(csv.reader(file, delimiter=','))
+    # Shuffle
+    random.shuffle(test_names)
+    # Reduce the size of testset
+    test_names = test_names[:sets_sizes[2]]
 
     # Initialize train-, val- and test-
     # -sets and -loaders
     global trainset, valset, testset, train_loader, val_loader, test_loader
 
-    trainset = MyDataset(train_pics_names, train_masks_names, transform_train)
-    valset = MyDataset(val_pics_names, val_masks_names, transform_test)
-    testset = MyDataset(test_pics_names, test_masks_names, transform_test)
+    trainset = MyDataset(train_names, transform_train)
+    valset = MyDataset(val_names, transform_test)
+    testset = MyDataset(test_names, transform_test)
 
-    train_loader = DataLoader(trainset, batch_size, shuffle=True, num_workers=1)
+    train_loader = DataLoader(trainset, batch_size, shuffle=False, num_workers=1) # Already shuffled
     val_loader = DataLoader(valset, batch_size, shuffle=False, num_workers=1)
     test_loader = DataLoader(testset, batch_size, shuffle=False, num_workers=1)
 
-    print('Dataset names are read, loaders are created')
+    print('Dataset names\'re read, loaders\'re created')
 
 
 def train():
@@ -291,12 +300,14 @@ def train():
         print('Epoch ' + str(epoch + 1) + '/' + str(n_epochs) + ':')
 
         ''' Train '''
+        # print('  Training:')
         model.train(True)
         total_loss = 0
         batch_cnt = 0
 
         # Iterate through batches
-        for images, true_masks in train_loader:
+        for i, (images, true_masks) in enumerate(train_loader):
+            # print('    batch #' + str(i + 1))
             images = images.to(device)
             true_masks = true_masks.to(device)
 
@@ -317,16 +328,18 @@ def train():
             # Update weights
             optimizer.step()
 
-        print('Train loss = ' + str(total_loss / batch_cnt))
+        print('  Train loss = ' + str(total_loss / batch_cnt))
 
 
         ''' Validation '''
+        # print('  Validation:')
         total_loss = 0
         batch_cnt = 0
         model.train(False)
 
         # Iterate through batches
-        for images, true_masks in val_loader:
+        for i, (images, true_masks) in enumerate(val_loader):
+            # print('    batch #' + str(i + 1))
             images = images.to(device)
             true_masks = true_masks.to(device)
 
@@ -343,10 +356,44 @@ def train():
             # Zero out parameter gradients
             optimizer.zero_grad()
 
-        print('Validation loss = ' + str(total_loss / batch_cnt))
+        print('  Validation loss = ' + str(total_loss / batch_cnt))
+
+
+def rewrite_csv():
+    # The numbers of names in original CSV-files were bigger than actual number of files
+    # + there were images and masks with same names but different file formats
+
+    train_pics_names = glob.glob('dataset/train_set/*')
+    train_masks_names = glob.glob('dataset/train_set_mask/*')
+    with open('dataset\\train_set.csv', 'w', newline='\n') as file:
+        writer = csv.writer(file, delimiter=',')
+        for pic, mask in zip(train_pics_names, train_masks_names):
+            writer.writerow([pic, mask])
+
+    val_pics_names = glob.glob('dataset/val_set/*')
+    val_masks_names = glob.glob('dataset/val_set_mask/*')
+    with open('dataset\\val_set.csv', 'w', newline='\n') as file:
+        writer = csv.writer(file, delimiter=',')
+        for pic, mask in zip(val_pics_names, val_masks_names):
+            writer.writerow([pic, mask])
+
+    test_pics_names = glob.glob('dataset/test_set/*')
+    test_masks_names = glob.glob('dataset/test_set_mask/*')
+    with open('dataset\\test_set.csv', 'w', newline='\n') as file:
+        writer = csv.writer(file, delimiter=',')
+        for pic, mask in zip(test_pics_names, test_masks_names):
+            writer.writerow([pic, mask])
 
 
 if __name__ == '__main__':
+    src = 'create' # 'load' or 'create'
+
+    # rewrite_csv()
     read_dataset()
-    create_model()
-    train()
+
+    if src == 'create':
+        create_model()
+        train()
+        save_model('fcn')
+
+    load_model('fcn')
