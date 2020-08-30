@@ -18,12 +18,13 @@ torch.manual_seed(0)
 trainset, valset, testset = None, None, None
 train_loader, val_loader, test_loader = None, None, None
 model = None
-# Batch size, epochs number, classes number, channels number
+# Batch size, epochs number, classes number, channels number, images' height and width
 batch_size = 32
 n_epochs = 12
 n_classes = 2
 n_channels = 3
-
+# h, w = 180, 320
+h, w = 360, 640
 
 class MyDataset(Dataset):
     def __init__(self, filenames, transform):
@@ -52,40 +53,105 @@ class MyDataset(Dataset):
 class FCN(torch.nn.Module):
     def __init__(self):
         super(FCN, self).__init__()
-        # (batch_size, n_channels, h, w)
-        self.conv_L1 = torch.nn.Conv2d(n_channels, 1, kernel_size=3, padding=1) # ==> (b_s, 64, h, w)
-        self.batchnorm_L1 = torch.nn.BatchNorm2d(64) # ==> same
 
-        self.conv_L2 = torch.nn.Conv2d(64, 32, kernel_size=3, padding=1) # ==> (b_s, 32, h, w)
-        self.batchnorm_L2 = torch.nn.BatchNorm2d(32) # ==> same
+        # (batch_size, n_channels, 360, 640)
 
-        self.conv_L3 = torch.nn.Conv2d(32, 16, kernel_size=3, padding=1) # ==> (b_s, 16, h, w)
+        self.conv1_L1 = torch.nn.Conv2d(n_channels, n_channels, kernel_size=3) # ==> (b_s, n_channels, 358, 638)
+        self.conv2_L1 = torch.nn.Conv2d(n_channels, 8, kernel_size=3) # ==> (b_s, 8, 356, 636)
+        # Max pooling ==> (b_s, 8, 178, 318)
+        self.batchnorm_L1 = torch.nn.BatchNorm2d(8) # ==> same
+
+        self.conv_L2 = torch.nn.Conv2d(8, 12, kernel_size=3) # ==> (b_s, 12, 176, 316)
+        # Max pooling ==> (b_s, 12, 88, 158)
+        self.batchnorm_L2 = torch.nn.BatchNorm2d(12) # ==> same
+
+        self.conv_L3 = torch.nn.Conv2d(12, 16, kernel_size=3) # ==> (b_s, 16, 86, 156)
+        # Max pooling ==> (b_s, 16, 43, 78)
         self.batchnorm_L3 = torch.nn.BatchNorm2d(16) # ==> same
 
-        self.conv_L4 = torch.nn.Conv2d(16, 1, kernel_size=3, padding=1) # ==> (b_s, 1, h, w)
+        self.upsample_L4 = torch.nn.ConvTranspose2d(16, 8, kernel_size=4, stride=2) # ==> (b_s, 8, 88, 158)
+        # Add concatenation ==> (b_s, 20, 88, 158)
+        self.batchnorm_L4 = torch.nn.BatchNorm2d(20) # ==> same
+
+        self.upsample_L5 = torch.nn.ConvTranspose2d(20, 8, kernel_size=4, stride=2) # ==> (b_s, 8, 178, 318)
+        # Add concatenation ==> (b_s, 16, 178, 318)
+        self.batchnorm_L5 = torch.nn.BatchNorm2d(16) # ==> same
+
+        self.upsample_L6 = torch.nn.ConvTranspose2d(16, 6, kernel_size=6, stride=2) # ==> (b_s, 6, 360, 640)
+        self.batchnorm_L6 = torch.nn.BatchNorm2d(6)  # ==> same
+
+        self.conv_L7 = torch.nn.Conv2d(6, 1, kernel_size=1)  # ==> (b_s, 1, 360, 640)
 
         self.drop_L = torch.nn.Dropout(0.4)
 
     def forward(self, x):
-        # # (batch_size, n_channels, 360, 640)
-        # x = F.relu(self.conv_L1(x))  # ==> (b_s, 64, 360, 640)
-        # x = self.batchnorm_L1(x)
-        # x = self.drop_L(x)
-        #
-        # x = F.relu(self.conv_L2(x))  # ==> (b_s, 32, 360, 640)
-        # x = self.batchnorm_L2(x)
-        # x = self.drop_L(x)
-        #
-        # x = F.relu(self.conv_L3(x))  # ==> (b_s, 16, 360, 640)
-        # x = self.batchnorm_L3(x)
-        # x = self.drop_L(x)
-        #
-        # x = self.conv_L4(x)  # ==> (b_s, 1, 360, 640)
-        #
-        # # Get rid of channels dimension
-        # x = x.squeeze(dim=1)
+        show_shapes = False
 
-        x = self.conv_L1(x)
+        # (batch_size, n_channels, 360, 640)
+        if show_shapes:
+            print(x.shape)
+
+        x = F.leaky_relu(self.conv1_L1(x)) # ==> (b_s, n_channels, 358, 638)
+        if show_shapes:
+            print(x.shape)
+        x = F.leaky_relu(self.conv2_L1(x)) # ==> (b_s, 8, 356, 636)
+        if show_shapes:
+            print(x.shape)
+        x = F.max_pool2d(x, 2) # ==> (b_s, 8, 178, 318)
+        x_1 = x.clone() # Save for skip connection
+        if show_shapes:
+            print(x.shape)
+        x = self.batchnorm_L1(x)
+        x = self.drop_L(x)
+
+        x = F.leaky_relu(self.conv_L2(x))  # ==> (b_s, 12, 176, 316)
+        if show_shapes:
+            print(x.shape)
+        x = F.max_pool2d(x, 2) # ==> (b_s, 12, 88, 158)
+        x_2 = x.clone() # Save for skip connection
+        if show_shapes:
+            print(x.shape)
+        x = self.batchnorm_L2(x)
+        x = self.drop_L(x)
+
+        x = F.leaky_relu(self.conv_L3(x)) # ==> (b_s, 16, 86, 156)
+        if show_shapes:
+            print(x.shape)
+        x = F.max_pool2d(x, 2) # ==> (b_s, 16, 43, 78)
+        if show_shapes:
+            print(x.shape)
+        x = self.batchnorm_L3(x)
+        x = self.drop_L(x)
+
+        x = F.leaky_relu(self.upsample_L4(x)) # ==> (b_s, 8, 88, 158)
+        if show_shapes:
+            print(x.shape)
+        x = torch.cat((x_2, x), 1) # ==> (b_s, 20, 88, 158)
+        if show_shapes:
+            print(x.shape)
+        x = self.batchnorm_L4(x)
+        x = self.drop_L(x)
+
+        x = F.leaky_relu(self.upsample_L5(x)) # ==> (b_s, 8, 178, 318)
+        if show_shapes:
+            print(x.shape)
+        x = torch.cat((x_1, x), 1) # ==> (b_s, 16, 178, 318)
+        if show_shapes:
+            print(x.shape)
+        x = self.batchnorm_L5(x)
+        x = self.drop_L(x)
+
+        x = F.leaky_relu(self.upsample_L6(x)) # ==> (b_s, 6, 360, 640)
+        if show_shapes:
+            print(x.shape)
+        x = self.batchnorm_L6(x)
+        x = self.drop_L(x)
+
+        x = self.conv_L7(x) # ==> (b_s, 1, 360, 640)
+        if show_shapes:
+            print(x.shape)
+
+        # Get rid of channels dimension
         x = x.squeeze(dim=1)
 
         return x
@@ -234,7 +300,7 @@ def read_dataset():
         albu.CoarseDropout(max_holes=100, max_height=5, max_width=5,
                            min_holes=10, min_height=1, min_width=1,
                            fill_value=0, p=0.9),
-        albu.Resize(180, 320),
+        # albu.Resize(h, w),
         albu.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.7),
         albu.Normalize(mean=0.5, std=0.5, always_apply=True),
         ToTensorV2(always_apply=True)
@@ -242,14 +308,14 @@ def read_dataset():
 
     # Test augmentations
     transform_test = albu.Compose([
-        albu.Resize(180, 320),
+        # albu.Resize(h, w),
         albu.Normalize(mean=0.5, std=0.5, always_apply=True),
         ToTensorV2(always_apply=True)
     ])
 
     # Datasets sizes
     # sets_sizes = [11943, 3001, 2309]
-    sets_sizes = [1000, 100, 200]
+    sets_sizes = [11943, 100, 2309]
 
     # Read trainset names
     with open('dataset\\train_set.csv', newline='\n') as file:
@@ -300,14 +366,14 @@ def train():
         print('Epoch ' + str(epoch + 1) + '/' + str(n_epochs) + ':')
 
         ''' Train '''
-        # print('  Training:')
+        print('  Training:')
         model.train(True)
         total_loss = 0
         batch_cnt = 0
 
         # Iterate through batches
         for i, (images, true_masks) in enumerate(train_loader):
-            # print('    batch #' + str(i + 1))
+            print('    batch #' + str(i + 1))
             images = images.to(device)
             true_masks = true_masks.to(device)
 
@@ -332,14 +398,14 @@ def train():
 
 
         ''' Validation '''
-        # print('  Validation:')
+        print('  Validation:')
         total_loss = 0
         batch_cnt = 0
         model.train(False)
 
         # Iterate through batches
         for i, (images, true_masks) in enumerate(val_loader):
-            # print('    batch #' + str(i + 1))
+            print('    batch #' + str(i + 1))
             images = images.to(device)
             true_masks = true_masks.to(device)
 
@@ -357,6 +423,45 @@ def train():
             optimizer.zero_grad()
 
         print('  Validation loss = ' + str(total_loss / batch_cnt))
+
+
+def test():
+    # print('  Testing:')
+    global model
+    model.eval()
+
+    test_predicts = np.zeros((len(testset), h, w), dtype=np.float)
+    test_true_masks = np.zeros((len(testset), h, w), dtype=np.float)
+    test_images = np.zeros((len(testset), h, w, 3), dtype=np.float)
+    pic_ind = 0
+    with torch.no_grad():
+        # Iterate through batches
+        for i, (images, true_masks) in enumerate(test_loader):
+            # print('    batch #' + str(i + 1))
+            images = images.to(device)
+            true_masks = true_masks.to(device)
+
+            # Get predictions
+            predictions = model(images)
+            # Remember ground truth and prediction of an image
+            test_true_masks[pic_ind:pic_ind + true_masks.shape[0]] = true_masks
+            test_predicts[pic_ind:pic_ind + true_masks.shape[0]] = predictions.numpy()
+
+            test_images[pic_ind:pic_ind + true_masks.shape[0]] = np.transpose(images.numpy(), (0, 2, 3, 1))
+
+            # Update image index
+            pic_ind += true_masks.shape[0]
+
+    print('Testing\'s completed')
+
+    for img, true_mask, pred in zip(test_images, test_true_masks, test_predicts):
+        cv2.imshow('Image', img)
+        cv2.imshow('Expected', true_mask)
+        cv2.imshow('Result', pred)
+        cv2.waitKey(0)
+
+    # Show metrics
+    show_metrics(test_true_masks, test_predicts)
 
 
 def rewrite_csv():
@@ -392,8 +497,12 @@ if __name__ == '__main__':
     read_dataset()
 
     if src == 'create':
+        print('Training a model:')
         create_model()
         train()
         save_model('fcn')
+    else:
+        print('The model\'s loaded')
+        load_model('fcn')
 
-    load_model('fcn')
+    test()
