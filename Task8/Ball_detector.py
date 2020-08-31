@@ -125,7 +125,9 @@ class FCN(torch.nn.Module):
 
         # Convert to binary
         for i, pic in enumerate(x):
-            x[i] = torch.where(pic > torch.mean(pic), torch.tensor(1.), torch.tensor(0.))
+            pic = pic - torch.min(pic)
+            torch.true_divide(pic, torch.max(pic))
+            x[i] = torch.where(pic > 0.5, torch.tensor(1.), torch.tensor(0.))
 
         return x
 
@@ -135,8 +137,7 @@ def percent(float_num):
 
 
 def show_metrics(true_masks, predictions):
-    # Confusion Matrix, true pos, false pos, true neg, false neg
-    conf_mat = np.zeros((n_classes, n_classes), dtype=np.uint32)
+    # True pos, false pos, true neg, false neg
     tp = np.zeros(n_classes, dtype=np.uint32)
     fp = np.zeros(n_classes, dtype=np.uint32)
     tn = np.zeros(n_classes, dtype=np.uint32)
@@ -157,12 +158,6 @@ def show_metrics(true_masks, predictions):
                    'Macro-Precision', 'Macro-Recall', 'Macro-Fscore']
     metric_value = np.zeros(len(metric_name), dtype=np.float32)
     for TP, FP, TN, FN in zip(tp, fp, tn, fn):
-        # Average Accuracy
-        if TP + FP + TN + FN > 0:
-            metric_value[0] += (TP + TN) / (TP + FP + TN + FN) / n_classes
-        # Error Rate
-        if TP + FP + TN + FN > 0:
-            metric_value[1] += (FP + FN) / (TP + FP + TN + FN) / n_classes
         # Macro-Precision
         if TP + FP > 0:
             metric_value[5] += TP / (TP + FP) / n_classes
@@ -177,70 +172,6 @@ def show_metrics(true_masks, predictions):
     metric_value[4] = 2 * metric_value[2] * metric_value[3] / (metric_value[2] + metric_value[3])
     # Macro-Fscore
     metric_value[7] = 2 * metric_value[5] * metric_value[6] / (metric_value[5] + metric_value[6])
-
-    # Show the confusion matrix
-    # Hat
-    hor_line = '+' + 10 * '-' + '+' + n_classes * (7 * '-' + '+')
-    print('\nConfusion Matrix:\n' + hor_line)
-    print('|\\' + 9 * ' ' + '|' + n_classes * (7 * ' ' + '|'))
-    print('| \\' + ' Actual |', end='')
-    for real in range(n_classes):
-        space_idx = HFCNames[real].find(' ')
-        if space_idx == -1:
-            l = len(HFCNames[real])
-            print(((7 - l) // 2 + (7 - l) % 2) * ' ' + HFCNames[real] + ((7 - l) // 2) * ' ' + '|', end='')
-        else:
-            l = space_idx
-            print(((7 - l) // 2 + (7 - l) % 2) * ' ' + HFCNames[real][:space_idx] + ((7 - l) // 2) * ' ' + '|', end='')
-    print('\n|  \\______ |', end='')
-    for real in range(n_classes):
-        space_idx = HFCNames[real].find(' ')
-        if space_idx == -1:
-            print(7 * ' ' + '|', end='')
-        else:
-            l = len(HFCNames[real]) - space_idx - 1
-            print(((7 - l) // 2 + (7 - l) % 2) * ' ' + HFCNames[real][space_idx + 1:] + ((7 - l) // 2) * ' ' + '|', end='')
-    print('\n|Predicted\\|' + n_classes * (7 * ' ' + '|'))
-    print(hor_line)
-
-    # Main part
-    for pred in range(n_classes):
-        # Prediction column (1 line)
-        print('|', end='')
-        space_idx = HFCNames[pred].find(' ')
-        if space_idx == -1:
-            print(10 * ' ' + '|', end='')
-        else:
-            l = space_idx
-            print(((10 - l) // 2 + (10 - l) % 2) * ' ' + HFCNames[pred][:space_idx] + ((10 - l) // 2) * ' ' + '|', end='')
-
-        # Values (1 line)
-        print(n_classes * (7 * ' ' + '|'))
-
-        # Prediction column (2 line)
-        print('|', end='')
-        if space_idx == -1:
-            l = len(HFCNames[pred])
-            print(((10 - l) // 2 + (10 - l) % 2) * ' ' + HFCNames[pred] + ((10 - l) // 2) * ' ' + '|', end='')
-        else:
-            l = len(HFCNames[pred]) - space_idx - 1
-            print(((10 - l) // 2 + (10 - l) % 2) * ' ' + HFCNames[pred][space_idx + 1:] + ((10 - l) // 2) * ' ' + '|', end='')
-
-        # Values (2 line)
-        for real in range(n_classes):
-            print('  ', end='')
-            number = conf_mat[pred, real]
-            digits_before = False
-            for i in [100, 10, 1]:
-                digit = number // i
-                if digit == 0 and ~digits_before and i != 1:
-                    print(' ', end='')
-                else:
-                    print(str(digit), end='')
-                    digits_before = True
-                number %= i
-            print('  |', end='')
-        print('\n' + hor_line)
 
     # Show the metrics
     print()
@@ -331,19 +262,17 @@ def read_dataset():
 
 def tensor_to_bin_img(tensor):
     img = tensor.numpy()
-    # print(np.amin(img), np.amax(img))
+
     img -= np.amin(img)
-    # print(np.amin(img), np.amax(img))
     img = img / np.amax(img)
-    # print(np.amin(img), np.amax(img))
     _, img = cv2.threshold(img, 0.5, 1., cv2.THRESH_BINARY)
-    # print(np.amin(img), np.amax(img))
+
     return img
 
 
 def train():
     # Criterion, optimizer, epochs number
-    criterion = torch.nn.BCEWithLogitsLoss().to(device) # Gotta find the best loss function for segmentation
+    criterion = torch.nn.BCEWithLogitsLoss().to(device)
     optimizer = torch.optim.Adam(model.parameters())
 
     # Iterate through epochs
@@ -366,6 +295,7 @@ def train():
             predictions = model(images)
 
             # Loss function value
+            # loss = reversed_IOU(predictions, true_masks)
             loss = criterion(predictions, true_masks)
 
             # Update total_loss and batch_cnt
@@ -410,6 +340,22 @@ def train():
         print('  Validation loss = ' + str(total_loss / batch_cnt))
 
 
+def get_bbox(mask):
+    # Get outer contours
+    contours, _ = cv2.findContours(mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
+    # There are no or to many balls detected on the frame
+    if len(contours) != 1:
+        x, y, width, height = None, None, None, None
+    # There is only 1 ball
+    else:
+        x, y, width, height = cv2.boundingRect(contours[0])
+
+    print(x, y, width, height)
+
+    return x, y, width, height
+
+
 def test():
     # print('  Testing:')
     global model
@@ -432,9 +378,16 @@ def test():
             # Remember ground truth and prediction of an image
             test_true_masks[pic_ind:pic_ind + true_masks.shape[0]] = true_masks
 
+
+            # test_predicts[pic_ind:pic_ind + true_masks.shape[0]] = torch.sigmoid(predictions).numpy()
+
             # test_predicts[pic_ind:pic_ind + true_masks.shape[0]] = predictions.numpy()
+
             for i, prediction in enumerate(predictions, pic_ind):
                 test_predicts[i] = tensor_to_bin_img(prediction)
+
+            # for i, prediction in enumerate(torch.sigmoid(predictions), pic_ind):
+            #     test_predicts[i] = tensor_to_bin_img(prediction)
 
             test_images[pic_ind:pic_ind + true_masks.shape[0]] = np.transpose(images.numpy(), (0, 2, 3, 1))
 
@@ -444,9 +397,16 @@ def test():
     print('Testing\'s completed')
 
     for img, true_mask, pred in zip(test_images, test_true_masks, test_predicts):
+        img = cv2.resize(img, (img.shape[1] * 6, img.shape[0] * 6))
         cv2.imshow('Image', img)
+        true_mask = cv2.resize(true_mask, (true_mask.shape[1] * 6, true_mask.shape[0] * 6))
         cv2.imshow('Expected', true_mask)
+        pred = cv2.resize(pred, (pred.shape[1] * 6, pred.shape[0] * 6))
         cv2.imshow('Result', pred)
+
+        # print(np.amin(true_mask), np.amax(true_mask))
+        # print(np.amin(pred), np.amax(pred))
+
         cv2.waitKey(0)
 
     # Show metrics
