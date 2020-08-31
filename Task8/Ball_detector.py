@@ -137,7 +137,12 @@ def percent(float_num):
 
 
 def calc_intersection(gt_bbox, nn_bbox):
-    pass
+    rect1 = (gt_bbox[0], gt_bbox[1], gt_bbox[0] + gt_bbox[2], gt_bbox[1] + gt_bbox[3])
+    rect2 = (nn_bbox[0], nn_bbox[1], nn_bbox[0] + nn_bbox[2], nn_bbox[1] + nn_bbox[3])
+
+    rect_inter = (max(rect1[0], rect2[0]), max(rect1[1], rect2[1]),
+                  min(rect1[2], rect2[2]), min(rect1[3], rect2[3]))
+    return max((rect_inter[2] - rect_inter[0]) * (rect_inter[3] - rect_inter[1]), 0)
 
 
 def show_metrics(true_bboxes, predictions):
@@ -145,13 +150,13 @@ def show_metrics(true_bboxes, predictions):
     tp, fp, tn, fn = 0, 0, 0, 0
     for true_bbox, pred_bbox in zip(true_bboxes, predictions):
         # There are no GT and predicted bboxes
-        if true_bbox[0] is None and pred_bbox[0] is None:
+        if true_bbox[0] == -1 and pred_bbox[0] == -1:
             tn += 1
         # There is no GT bbox, but the NN found one
-        elif true_bbox[0] is None and pred_bbox[0] is not None:
+        elif true_bbox[0] == -1 and pred_bbox[0] != -1:
             fp += 1
         # There is GT bbox, but the NN didn't find it
-        elif true_bbox[0] is not None and pred_bbox[0] is None:
+        elif true_bbox[0] != -1 and pred_bbox[0] == -1:
             fn += 1
         else:
             # Calculate IoU
@@ -164,30 +169,15 @@ def show_metrics(true_bboxes, predictions):
             else:
                 fp += 1
 
-    # Calculate metrics' values
-    metric_name = ['Average Accuracy', 'Error Rate', 'micro-Precision', 'micro-Recall', 'micro-Fscore',
-                   'Macro-Precision', 'Macro-Recall', 'Macro-Fscore']
-    metric_value = np.zeros(len(metric_name), dtype=np.float32)
-    for TP, FP, TN, FN in zip(tp, fp, tn, fn):
-        # Macro-Precision
-        if TP + FP > 0:
-            metric_value[5] += TP / (TP + FP) / n_classes
-        # Macro-Recall
-        if TP + FN > 0:
-            metric_value[6] += TP / (TP + FN) / n_classes
-    # micro-Precision
-    metric_value[2] = np.sum(tp) / (np.sum(tp) + np.sum(fp))
-    # micro-Recall
-    metric_value[3] = np.sum(tp) / (np.sum(tp) + np.sum(fn))
-    # micro-Fscore
-    metric_value[4] = 2 * metric_value[2] * metric_value[3] / (metric_value[2] + metric_value[3])
-    # Macro-Fscore
-    metric_value[7] = 2 * metric_value[5] * metric_value[6] / (metric_value[5] + metric_value[6])
-
-    # Show the metrics
-    print()
-    for name, value in zip(metric_name, metric_value):
-        print(name + ' = ' + percent(value))
+    # Precision
+    precision = tp / (tp + fp)
+    print('Precision = ' + percent(precision))
+    # Recall
+    recall = tp / (tp + fn)
+    print('Recall = ' + percent(recall))
+    # F1
+    F1 = 2 * precision * recall / (precision + recall)
+    print('F1 = ' + percent(F1))
 
 
 def save_model(filename):
@@ -357,12 +347,10 @@ def get_bbox(mask):
 
     # There are no or to many balls detected on the frame
     if len(contours) != 1:
-        x, y, width, height = None, None, None, None
+        x, y, width, height = -1, -1, -1, -1
     # There is only 1 ball
     else:
         x, y, width, height = cv2.boundingRect(contours[0])
-
-    print(x, y, width, height)
 
     return x, y, width, height
 
@@ -372,8 +360,8 @@ def test():
     global model
     model.eval()
 
-    test_predicts = np.zeros((len(testset), 4), dtype=np.uint32)
-    test_true_bboxes = np.zeros((len(testset), 4), dtype=np.uint32)
+    test_predicts = np.zeros((len(testset), 4), dtype=np.int32)
+    test_true_bboxes = np.zeros((len(testset), 4), dtype=np.int32)
     # test_images = np.zeros((len(testset), h, w, 3), dtype=np.float)
     pic_ind = 0
     with torch.no_grad():
@@ -387,16 +375,17 @@ def test():
             predictions = model(images)
 
             # Remember ground truth and prediction of an image
-            for i, true_mask in enumerate(true_masks, pic_ind):
-                test_true_bboxes[i] = get_bbox(true_mask)
+            for i, (true_mask, prediction) in enumerate(zip(true_masks, predictions), pic_ind):
+                test_true_bboxes[i] = get_bbox(true_mask.numpy())
+                test_predicts[i] = get_bbox(tensor_to_bin_img(prediction))
 
 
             # test_predicts[pic_ind:pic_ind + true_masks.shape[0]] = torch.sigmoid(predictions).numpy()
 
             # test_predicts[pic_ind:pic_ind + true_masks.shape[0]] = predictions.numpy()
 
-            for i, predict in enumerate(predictions, pic_ind):
-                test_predicts[i] = get_bbox(tensor_to_bin_img(predict))
+            # for i, predict in enumerate(predictions, pic_ind):
+            #     test_predicts[i] = get_bbox(tensor_to_bin_img(predict))
 
             # for i, prediction in enumerate(torch.sigmoid(predictions), pic_ind):
             #     test_predicts[i] = tensor_to_bin_img(prediction)
