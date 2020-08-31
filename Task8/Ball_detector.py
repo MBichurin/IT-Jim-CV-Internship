@@ -123,6 +123,10 @@ class FCN(torch.nn.Module):
         # Get rid of channels dimension
         x = x.squeeze(dim=1)
 
+        # Convert to binary
+        for i, pic in enumerate(x):
+            x[i] = torch.where(pic > torch.mean(pic), torch.tensor(1.), torch.tensor(0.))
+
         return x
 
 
@@ -476,7 +480,7 @@ def rewrite_csv():
 
 
 if __name__ == '__main__':
-    src = 'load' # 'load' or 'create'
+    src = 'create' # 'load' or 'create'
 
     # rewrite_csv()
     read_dataset()
