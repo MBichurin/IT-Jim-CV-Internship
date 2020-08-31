@@ -123,11 +123,11 @@ class FCN(torch.nn.Module):
         # Get rid of channels dimension
         x = x.squeeze(dim=1)
 
-        # Convert to binary
-        for i, pic in enumerate(x):
-            pic = pic - torch.min(pic)
-            torch.true_divide(pic, torch.max(pic))
-            x[i] = torch.where(pic > 0.5, torch.tensor(1.), torch.tensor(0.))
+        # # Convert to binary
+        # for i, pic in enumerate(x):
+        #     pic = pic - torch.min(pic)
+        #     torch.true_divide(pic, torch.max(pic))
+        #     x[i] = torch.where(pic > 0.5, torch.tensor(1.), torch.tensor(0.))
 
         return x
 
@@ -136,22 +136,33 @@ def percent(float_num):
     return ("%.2f" % (float_num * 100)) + '%'
 
 
-def show_metrics(true_masks, predictions):
+def calc_intersection(gt_bbox, nn_bbox):
+    pass
+
+
+def show_metrics(true_bboxes, predictions):
     # True pos, false pos, true neg, false neg
-    tp = np.zeros(n_classes, dtype=np.uint32)
-    fp = np.zeros(n_classes, dtype=np.uint32)
-    tn = np.zeros(n_classes, dtype=np.uint32)
-    fn = np.zeros(n_classes, dtype=np.uint32)
-    for real, pred in zip(markers, predictions):
-        conf_mat[pred, real] += 1
-        if real == pred:
-            tp[real] += 1
+    tp, fp, tn, fn = 0, 0, 0, 0
+    for true_bbox, pred_bbox in zip(true_bboxes, predictions):
+        # There are no GT and predicted bboxes
+        if true_bbox[0] is None and pred_bbox[0] is None:
+            tn += 1
+        # There is no GT bbox, but the NN found one
+        elif true_bbox[0] is None and pred_bbox[0] is not None:
+            fp += 1
+        # There is GT bbox, but the NN didn't find it
+        elif true_bbox[0] is not None and pred_bbox[0] is None:
+            fn += 1
         else:
-            fn[real] += 1
-            fp[pred] += 1
-        for i in range(n_classes):
-            if i != real and i != pred:
-                tn[i] += 1
+            # Calculate IoU
+            intersection = calc_intersection(true_bbox, pred_bbox)
+            union = true_bbox[2] * true_bbox[3] + pred_bbox[2] * pred_bbox[3] - intersection
+            IoU = (intersection + 1e-6) / (union + 1e-6)
+
+            if IoU >= 0.5:
+                tp += 1
+            else:
+                fp += 1
 
     # Calculate metrics' values
     metric_name = ['Average Accuracy', 'Error Rate', 'micro-Precision', 'micro-Recall', 'micro-Fscore',
@@ -361,9 +372,9 @@ def test():
     global model
     model.eval()
 
-    test_predicts = np.zeros((len(testset), h, w), dtype=np.float)
-    test_true_masks = np.zeros((len(testset), h, w), dtype=np.float)
-    test_images = np.zeros((len(testset), h, w, 3), dtype=np.float)
+    test_predicts = np.zeros((len(testset), 4), dtype=np.uint32)
+    test_true_bboxes = np.zeros((len(testset), 4), dtype=np.uint32)
+    # test_images = np.zeros((len(testset), h, w, 3), dtype=np.float)
     pic_ind = 0
     with torch.no_grad():
         # Iterate through batches
@@ -376,41 +387,41 @@ def test():
             predictions = model(images)
 
             # Remember ground truth and prediction of an image
-            test_true_masks[pic_ind:pic_ind + true_masks.shape[0]] = true_masks
+            for i, true_mask in enumerate(true_masks, pic_ind):
+                test_true_bboxes[i] = get_bbox(true_mask)
 
 
             # test_predicts[pic_ind:pic_ind + true_masks.shape[0]] = torch.sigmoid(predictions).numpy()
 
             # test_predicts[pic_ind:pic_ind + true_masks.shape[0]] = predictions.numpy()
 
-            for i, prediction in enumerate(predictions, pic_ind):
-                test_predicts[i] = tensor_to_bin_img(prediction)
+            for i, predict in enumerate(predictions, pic_ind):
+                test_predicts[i] = get_bbox(tensor_to_bin_img(predict))
 
             # for i, prediction in enumerate(torch.sigmoid(predictions), pic_ind):
             #     test_predicts[i] = tensor_to_bin_img(prediction)
 
-            test_images[pic_ind:pic_ind + true_masks.shape[0]] = np.transpose(images.numpy(), (0, 2, 3, 1))
+
+
+
+            # test_images[pic_ind:pic_ind + true_masks.shape[0]] = np.transpose(images.numpy(), (0, 2, 3, 1))
 
             # Update image index
             pic_ind += true_masks.shape[0]
 
     print('Testing\'s completed')
 
-    for img, true_mask, pred in zip(test_images, test_true_masks, test_predicts):
-        img = cv2.resize(img, (img.shape[1] * 6, img.shape[0] * 6))
-        cv2.imshow('Image', img)
-        true_mask = cv2.resize(true_mask, (true_mask.shape[1] * 6, true_mask.shape[0] * 6))
-        cv2.imshow('Expected', true_mask)
-        pred = cv2.resize(pred, (pred.shape[1] * 6, pred.shape[0] * 6))
-        cv2.imshow('Result', pred)
-
-        # print(np.amin(true_mask), np.amax(true_mask))
-        # print(np.amin(pred), np.amax(pred))
-
-        cv2.waitKey(0)
+    # for img, true_mask, pred in zip(test_images, test_true_masks, test_predicts):
+    #     img = cv2.resize(img, (img.shape[1] * 6, img.shape[0] * 6))
+    #     cv2.imshow('Image', img)
+    #     true_mask = cv2.resize(true_mask, (true_mask.shape[1] * 6, true_mask.shape[0] * 6))
+    #     cv2.imshow('Expected', true_mask)
+    #     pred = cv2.resize(pred, (pred.shape[1] * 6, pred.shape[0] * 6))
+    #     cv2.imshow('Result', pred)
+    #     cv2.waitKey(0)
 
     # Show metrics
-    show_metrics(test_true_masks, test_predicts)
+    show_metrics(test_true_bboxes, test_predicts)
 
 
 def rewrite_csv():
@@ -440,7 +451,7 @@ def rewrite_csv():
 
 
 if __name__ == '__main__':
-    src = 'create' # 'load' or 'create'
+    src = 'load' # 'load' or 'create'
 
     # rewrite_csv()
     read_dataset()
