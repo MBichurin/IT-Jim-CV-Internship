@@ -375,7 +375,7 @@ def test():
 
     test_predicts = np.zeros((len(testset), 4), dtype=np.int32)
     test_true_bboxes = np.zeros((len(testset), 4), dtype=np.int32)
-    # test_images = np.zeros((len(testset), h, w, 3), dtype=np.float)
+
     pic_ind = 0
     with torch.no_grad():
         # Iterate through batches
@@ -388,7 +388,6 @@ def test():
             predictions = model(images)
 
             # Remember ground truth and prediction of an image
-            # for i, (true_mask, prediction) in enumerate(zip(true_masks, predictions), pic_ind):
             for i, (true_mask, prediction) in enumerate(zip(true_masks, torch.sigmoid(predictions)), pic_ind):
                 test_true_bboxes[i] = get_bbox(true_mask.numpy())
                 test_predicts[i] = get_bbox(tensor_to_bin_img(prediction))
@@ -403,7 +402,9 @@ def test():
 
 
 def inference(path):
-    print('Running inference...')
+    # Writer
+    fourcc = cv2.VideoWriter_fourcc(*'DIVX')
+    writer = cv2.VideoWriter('output.avi', fourcc, 5, (640, 360))
 
     # Test augmentations
     transform_infer = albu.Compose([
@@ -412,16 +413,16 @@ def inference(path):
         ToTensorV2(always_apply=True)
     ])
 
+    # Read images
     infer_names = glob.glob(path + '*')
-
     inferset = InferDataset(infer_names, transform_infer)
-
     infer_loader = DataLoader(inferset, batch_size=len(infer_names), shuffle=False, num_workers=1)
 
     global model
     model.eval()
 
-    pic_ind = 0
+    print('Running inference...')
+
     with torch.no_grad():
         # Iterate through batches
         for orig_images, images in infer_loader:
@@ -432,19 +433,23 @@ def inference(path):
             predictions = model(images)
 
             # Remember images and predicted bboxes on them
-            # for orig_img, prediction in zip(orig_images, predictions):
             for orig_img, prediction in zip(orig_images, torch.sigmoid(predictions)):
+                # Get bbox params
                 x, y, width, height = get_bbox(tensor_to_bin_img(prediction))
+                # Scale to fit the original sizes
                 x = int(x * 640 / 82)
                 width = int(width * 640 / 82)
                 y = int(y * 360 / 46)
                 height = int(height * 360 / 46)
-                cv2.rectangle(orig_img, (x, y), (x + width, y + height), (0, 255, 0), 2)
-                cv2.imshow('Ball detector', orig_img)
-                cv2.waitKey(40)
+                # Draw bbox on the current frame
+                cv2.rectangle(orig_img, (x, y), (x + width, y + height), (0, 255, 0), 1)
+                # Show video in a window with 25 fps
+                # cv2.imshow('Ball detector', orig_img)
+                # cv2.waitKey(40)
+                # Write current frame with 5 fps
+                writer.write(orig_img)
 
-            # Update image index
-            pic_ind += images.shape[0]
+    writer.release()
 
 
 def rewrite_csv():
