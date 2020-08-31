@@ -38,7 +38,6 @@ class MyDataset(Dataset):
     def __getitem__(self, item):
         # Read an image
         img = cv2.imread(self.filenames[item][0])
-        # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
         # Read a mask
         mask = cv2.imread(self.filenames[item][1])
@@ -48,6 +47,20 @@ class MyDataset(Dataset):
         transformed = self.transform(image=img, mask=mask)
 
         return transformed['image'], transformed['mask']
+
+
+class InferDataset(Dataset):
+    def __init__(self, filenames, transform):
+        self.filenames = filenames
+        self.transform = transform
+        self.len = len(filenames)
+
+    def __len__(self):
+        return self.len
+
+    def __getitem__(self, item):
+        img = cv2.imread(self.filenames[item])
+        return img, self.transform(image=img)['image']
 
 
 class FCN(torch.nn.Module):
@@ -375,42 +388,63 @@ def test():
             predictions = model(images)
 
             # Remember ground truth and prediction of an image
-            for i, (true_mask, prediction) in enumerate(zip(true_masks, predictions), pic_ind):
+            # for i, (true_mask, prediction) in enumerate(zip(true_masks, predictions), pic_ind):
+            for i, (true_mask, prediction) in enumerate(zip(true_masks, torch.sigmoid(predictions)), pic_ind):
                 test_true_bboxes[i] = get_bbox(true_mask.numpy())
                 test_predicts[i] = get_bbox(tensor_to_bin_img(prediction))
-
-
-            # test_predicts[pic_ind:pic_ind + true_masks.shape[0]] = torch.sigmoid(predictions).numpy()
-
-            # test_predicts[pic_ind:pic_ind + true_masks.shape[0]] = predictions.numpy()
-
-            # for i, predict in enumerate(predictions, pic_ind):
-            #     test_predicts[i] = get_bbox(tensor_to_bin_img(predict))
-
-            # for i, prediction in enumerate(torch.sigmoid(predictions), pic_ind):
-            #     test_predicts[i] = tensor_to_bin_img(prediction)
-
-
-
-
-            # test_images[pic_ind:pic_ind + true_masks.shape[0]] = np.transpose(images.numpy(), (0, 2, 3, 1))
 
             # Update image index
             pic_ind += true_masks.shape[0]
 
     print('Testing\'s completed')
 
-    # for img, true_mask, pred in zip(test_images, test_true_masks, test_predicts):
-    #     img = cv2.resize(img, (img.shape[1] * 6, img.shape[0] * 6))
-    #     cv2.imshow('Image', img)
-    #     true_mask = cv2.resize(true_mask, (true_mask.shape[1] * 6, true_mask.shape[0] * 6))
-    #     cv2.imshow('Expected', true_mask)
-    #     pred = cv2.resize(pred, (pred.shape[1] * 6, pred.shape[0] * 6))
-    #     cv2.imshow('Result', pred)
-    #     cv2.waitKey(0)
-
     # Show metrics
     show_metrics(test_true_bboxes, test_predicts)
+
+
+def inference(path):
+    print('Running inference...')
+
+    # Test augmentations
+    transform_infer = albu.Compose([
+        albu.Resize(h, w),
+        albu.Normalize(mean=0.5, std=0.5, always_apply=True),
+        ToTensorV2(always_apply=True)
+    ])
+
+    infer_names = glob.glob(path + '*')
+
+    inferset = InferDataset(infer_names, transform_infer)
+
+    infer_loader = DataLoader(inferset, batch_size=len(infer_names), shuffle=False, num_workers=1)
+
+    global model
+    model.eval()
+
+    pic_ind = 0
+    with torch.no_grad():
+        # Iterate through batches
+        for orig_images, images in infer_loader:
+            images = images.to(device)
+            orig_images = orig_images.numpy()
+
+            # Get predictions
+            predictions = model(images)
+
+            # Remember images and predicted bboxes on them
+            # for orig_img, prediction in zip(orig_images, predictions):
+            for orig_img, prediction in zip(orig_images, torch.sigmoid(predictions)):
+                x, y, width, height = get_bbox(tensor_to_bin_img(prediction))
+                x = int(x * 640 / 82)
+                width = int(width * 640 / 82)
+                y = int(y * 360 / 46)
+                height = int(height * 360 / 46)
+                cv2.rectangle(orig_img, (x, y), (x + width, y + height), (0, 255, 0), 2)
+                cv2.imshow('Ball detector', orig_img)
+                cv2.waitKey(40)
+
+            # Update image index
+            pic_ind += images.shape[0]
 
 
 def rewrite_csv():
@@ -454,4 +488,6 @@ if __name__ == '__main__':
         print('The model\'s loaded')
         load_model('fcn')
 
-    test()
+    # test()
+
+    inference('dataset/test_set/')
