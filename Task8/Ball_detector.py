@@ -182,13 +182,11 @@ def show_metrics(true_bboxes, predictions):
             else:
                 fp += 1
 
-    # Precision
+    # Metrics
     precision = tp / (tp + fp)
     print('Precision = ' + percent(precision))
-    # Recall
     recall = tp / (tp + fn)
     print('Recall = ' + percent(recall))
-    # F1
     F1 = 2 * precision * recall / (precision + recall)
     print('F1 = ' + percent(F1))
 
@@ -232,8 +230,7 @@ def read_dataset():
     ])
 
     # Datasets sizes
-    # sets_sizes = [11943, 3001, 2309]
-    sets_sizes = [11943, 100, 2309]
+    sets_sizes = [11943, 3001, 2309]
 
     # Read trainset names
     with open('dataset\\train_set.csv', newline='\n') as file:
@@ -369,17 +366,18 @@ def get_bbox(mask):
 
 
 def test():
-    # print('  Testing:')
+    print('Testing...')
     global model
     model.eval()
 
+    # To save GT and predicted bboxes
     test_predicts = np.zeros((len(testset), 4), dtype=np.int32)
     test_true_bboxes = np.zeros((len(testset), 4), dtype=np.int32)
 
     pic_ind = 0
     with torch.no_grad():
         # Iterate through batches
-        for i, (images, true_masks) in enumerate(test_loader):
+        for images, true_masks in test_loader:
             # print('    batch #' + str(i + 1))
             images = images.to(device)
             true_masks = true_masks.to(device)
@@ -444,8 +442,8 @@ def inference(path):
                 # Draw bbox on the current frame
                 cv2.rectangle(orig_img, (x, y), (x + width, y + height), (0, 255, 0), 1)
                 # Show video in a window with 25 fps
-                # cv2.imshow('Ball detector', orig_img)
-                # cv2.waitKey(40)
+                cv2.imshow('Ball detector', orig_img)
+                cv2.waitKey(40)
                 # Write current frame with 5 fps
                 writer.write(orig_img)
 
@@ -493,6 +491,6 @@ if __name__ == '__main__':
         print('The model\'s loaded')
         load_model('fcn')
 
-    # test()
+    test()
 
     inference('dataset/test_set/')
