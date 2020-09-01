@@ -175,17 +175,19 @@ def read_dataset():
     transform_x = transforms.Compose(
         [transforms.ToTensor(),
          transforms.Normalize(mean=0.5, std=0.5)] +
-        [transforms.RandomErasing(p=0.7, scale=(0.0025, 0.0025), ratio=(1, 1), value=0)] * 100 +
-        [transforms.RandomErasing(p=0.7, scale=(0.0025, 0.0025), ratio=(1, 1), value=1)] * 100
+        [transforms.RandomErasing(p=1, scale=(0.0005, 0.0005), ratio=(1, 1), value=1)] * 100 +
+        [transforms.RandomErasing(p=1, scale=(0.0005, 0.0005), ratio=(1, 1), value=0)] * 100
     )
     transform_y = transforms.Compose(
         [transforms.ToTensor(),
          transforms.Normalize(mean=0.5, std=0.5)]
     )
 
+    print('Reading data...')
+
     # Load MNIST images
     traindata = torchvision.datasets.mnist.MNIST(root='./data', train=True, download=True)
-    traindata, _ = torch.utils.data.random_split(traindata, [2000, 58000])
+    traindata, _ = torch.utils.data.random_split(traindata, [10000, 50000])
     valdata = torchvision.datasets.mnist.MNIST(root='./data', train=False, download=True)
     valdata, inferdata, _ = torch.utils.data.random_split(valdata, [100, 1000, 8900])
 
