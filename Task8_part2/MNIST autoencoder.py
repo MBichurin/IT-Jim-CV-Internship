@@ -1,12 +1,10 @@
 import numpy as np
-import glob
 import random
 import cv2
 import torch
 import torch.nn.functional as F
 import torchvision
 import torchvision.transforms as transforms
-from albumentations.pytorch import ToTensorV2
 from torch.utils.data import DataLoader
 
 # Initialise device to either CUDA or CPU
@@ -73,8 +71,6 @@ class AutoEncoder(torch.nn.Module):
         self.drop_L = torch.nn.Dropout(0.4)
 
     def forward(self, x):
-        show_shapes = False
-
         # (batch_size, n_channels, 28, 28)
 
         x = F.leaky_relu(self.conv_L1(x)) # ==> (b_s, 64, 28, 28)
@@ -125,12 +121,6 @@ class AutoEncoder(torch.nn.Module):
 
         x = self.conv_L10(x) # ==> (b_s, n_channels, 28, 28)
 
-        # # Convert to binary
-        # for i, pic in enumerate(x):
-        #     pic = pic - torch.min(pic)
-        #     torch.true_divide(pic, torch.max(pic))
-        #     x[i] = torch.where(pic > 0.5, torch.tensor(1.), torch.tensor(0.))
-
         return x
 
 
@@ -164,7 +154,7 @@ def show_transform(data, transform_x, transform_y):
         img_x = cv2.resize(img_x, (150, 150))
         img_y = cv2.resize(img_y, (150, 150))
         # Show
-        cv2.imshow('Noisy', img_x)
+        cv2.imshow('Noised', img_x)
         cv2.imshow('Denoised', img_y)
         cv2.waitKey(0)
 
@@ -178,6 +168,7 @@ def read_dataset():
         [transforms.RandomErasing(p=1, scale=(0.0005, 0.0005), ratio=(1, 1), value=1)] * 100 +
         [transforms.RandomErasing(p=1, scale=(0.0005, 0.0005), ratio=(1, 1), value=0)] * 100
     )
+    global transform_y
     transform_y = transforms.Compose(
         [transforms.ToTensor(),
          transforms.Normalize(mean=0.5, std=0.5)]
@@ -195,17 +186,19 @@ def read_dataset():
 
     # Initialise dataset
     global trainset, valset, inferset
-    for img, _ in traindata:
-        trainset.extend([[transform_x(img), transform_y(img)]])
-    for img, _ in valdata:
-        valset.extend([[transform_x(img), transform_y(img)]])
+    if src == 'create':
+        for img, _ in traindata:
+            trainset.extend([[transform_x(img), transform_y(img)]])
+        for img, _ in valdata:
+            valset.extend([[transform_x(img), transform_y(img)]])
     for img, _ in inferdata:
         inferset.extend([[transform_x(img), transform_y(img)]])
 
     # Create loaders
     global train_loader, val_loader, infer_loader
-    train_loader = DataLoader(trainset, batch_size, shuffle=False, num_workers=1)
-    val_loader = DataLoader(valset, len(valset), shuffle=False, num_workers=1)
+    if src == 'create':
+        train_loader = DataLoader(trainset, batch_size, shuffle=False, num_workers=1)
+        val_loader = DataLoader(valset, len(valset), shuffle=False, num_workers=1)
     infer_loader = DataLoader(inferset, batch_size, shuffle=False, num_workers=1)
 
     print('Dataset\'s read')
@@ -280,19 +273,48 @@ def train():
         print('  Validation loss = ' + str(total_loss / batch_cnt))
 
 
-def inference(mode, pic=None):
+def visualize_denoise(img_noise, img_pred):
+    # Resize
+    size = 150
+    img_noise = cv2.resize(img_noise, (size, size))
+    img_pred = cv2.resize(img_pred, (size, size))
+    # Main image
+    img = np.zeros((40 + size + 15, 3 * 15 + 2 * size), dtype=np.float)
+    img[40:40 + size, 15:15 + size] = img_noise
+    img[40:40 + size, 2 * 15 + size:2 * 15 + 2 * size] = img_pred
+    # Text labels
+    cv2.putText(img, 'Noised:', (15, 30), cv2.QT_FONT_NORMAL, 0.8, (1., 1., 1.), 1)
+    cv2.putText(img, 'Denoised:', (2 * 15 + size, 30), cv2.QT_FONT_NORMAL, 0.8, (1., 1., 1.), 1)
+    # Show
+    cv2.imshow('Autoencoder', img)
+    cv2.waitKey(0)
+
+
+def inference(mode, path=None):
+    global model
+    model.eval()
+
+    print('Running inference...')
+
     if mode == 'pic':
-        pass
+        with torch.no_grad():
+            # Read as grayscale image
+            img_noise = cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2GRAY)
+            # Transform using transform_y cuz it's already noised
+            img_noise = transform_y(img_noise).to(device)
+
+            # Add batch dimension
+            img_noise.unsqueeze_(0)
+
+            # Pass to the model
+            img_pred = model(img_noise)
+
+            visualize_denoise(img_noise.numpy().squeeze(), img_pred.numpy().squeeze())
 
     if mode == 'loader':
-        global model
-        model.eval()
-
         # Lists of noisy and denoised pics
-        Images = np.zeros((len(inferset), 28, 28))
-        Predicts = np.zeros((len(inferset), 28, 28))
-
-        print('Running inference...')
+        Images = np.zeros((len(inferset), 28, 28), dtype=np.float)
+        Predicts = np.zeros((len(inferset), 28, 28), dtype=np.float)
 
         pic_ind = 0
 
@@ -311,14 +333,11 @@ def inference(mode, pic=None):
                 pic_ind += len(X)
 
         for img_noise, img_pred in zip(Images, Predicts):
-            img_noise = cv2.resize(img_noise, (150, 150))
-            img_pred = cv2.resize(img_pred, (150, 150))
-            cv2.imshow('Noisy', img_noise)
-            cv2.imshow('Denoised', img_pred)
-            cv2.waitKey(0)
+            visualize_denoise(img_noise, img_pred)
 
 
 if __name__ == '__main__':
+    global src
     src = 'load' # 'load' or 'create'
 
     read_dataset()
@@ -328,8 +347,12 @@ if __name__ == '__main__':
         create_model()
         train()
         save_model('net')
-    else:
+
+    if src == 'load':
         print('The model\'s loaded')
         load_model('net')
 
+    # Inference on a local image
+    inference('pic', 'example.png')
+    # Inference on several images from loader
     inference('loader')
